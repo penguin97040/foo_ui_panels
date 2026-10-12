@@ -231,6 +231,26 @@ int fixed_row_at(int y, int scroll, int row_h, int rows) {
     return r >= 0 && r < rows ? r : -1;
 }
 
+SplitSections split_sections(int h, int permille, int bar_h, int min_h) {
+    SplitSections s;
+    s.bar_h = std::max(0, std::min(bar_h, h));
+    const int avail = std::max(0, h - s.bar_h);
+    int top = (int)((long long)avail * std::clamp(permille, 0, 1000) / 1000);
+    if (avail >= 2 * min_h) top = std::clamp(top, min_h, avail - min_h);
+    else top = avail / 2;
+    s.top_h = top;
+    s.bar_y = top;
+    s.bottom_y = top + s.bar_h;
+    s.bottom_h = avail - top;
+    return s;
+}
+
+int split_permille(int h, int bar_y, int bar_h) {
+    const int avail = h - bar_h;
+    if (avail <= 0) return 500;
+    return (int)std::clamp((long long)bar_y * 1000 / avail, 0LL, 1000LL);
+}
+
 GridLayout album_grid(int client_w, int case_w, int case_h) {
     GridLayout g;
     if (case_w <= 0 || case_h <= 0) case_w = case_h = 1;

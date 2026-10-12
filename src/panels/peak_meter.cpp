@@ -24,7 +24,16 @@ void PeakMeter::on_attached() {
 
 void PeakMeter::refresh_cfg() {
     Cfg c;
-    if (m_engine) m_engine->theme_color(c.accent);
+    if (m_engine) {
+        m_engine->theme_color(c.accent);
+        const SkinConfig& k = m_engine->config();
+        c.vertical = k.str("peak_meter.orientation") == "vertical";
+        c.seg = std::clamp(k.num("peak_meter.segment", kSegW), 2, 64);
+        c.segGap = std::clamp(k.num("peak_meter.segment_gap", kSegGap), 0, c.seg - 1);
+        c.chGap = std::clamp(k.num("peak_meter.channel_gap", kBarGap), 0, 200);
+        c.hasUnlit = m_engine->configured_color("peak_meter", "unlit", c.unlit);
+        c.peak = m_engine->color("peak_meter", "peak", c.peak);
+    }
     if (m_engine && host()) {
         gfx::Rect b = host()->bounds();
         int ox = 0, oy = 0;
@@ -66,16 +75,21 @@ void PeakMeter::paint(gfx::Canvas& cv) {
     m_last = now;
 
     const int nch = (int)m_ch.size();
-    const int barH = std::max(1, (H - kBarGap * (nch - 1)) / nch);
-    const int segs = std::max(1, W / kSegW);
-    const gfx::Color dim = cfg.accent.scaled(25), hot = gfx::Color(255, 255, 255);
+    const gfx::Color dim = cfg.hasUnlit ? cfg.unlit : cfg.accent.scaled(25), hot = cfg.peak;
+    // Channels sit side by side (vertical) or stacked (horizontal); segments run along the other axis,
+    // from the bottom or the left.
+    const int across = cfg.vertical ? W : H, along = cfg.vertical ? H : W;
+    const int barW = std::max(1, (across - cfg.chGap * (nch - 1)) / nch);
+    const int segs = std::max(1, along / cfg.seg);
     for (int c = 0; c < nch; ++c) {
         m_ch[c].update(db[c], dt);
-        const int y = c * (barH + kBarGap);
+        const int off = c * (barW + cfg.chGap);
         const int lit = (int)std::lround(meter_fill(m_ch[c].level) * segs);
         const int peakSeg = (int)std::lround(meter_fill(m_ch[c].peak) * segs) - 1;
         for (int s = 0; s < segs; ++s) {
-            const gfx::Rect r{ s * kSegW, y, kSegW - kSegGap, barH };
+            const int len = cfg.seg - cfg.segGap;
+            const gfx::Rect r = cfg.vertical ? gfx::Rect{ off, H - (s + 1) * cfg.seg + cfg.segGap, barW, len }
+                                             : gfx::Rect{ s * cfg.seg, off, len, barW };
             if (s == peakSeg && peakSeg >= 0) cv.fill_rect(r, hot);
             else cv.fill_rect(r, s < lit ? cfg.accent : dim);
         }

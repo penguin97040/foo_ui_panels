@@ -182,6 +182,23 @@ TEST("TreeRows: flatten, toggle, parent, Left/Right") {
     CHECK_EQ(fixed_row_at(-1, 0, 20, 4), -1);
 }
 
+TEST("split_sections: share, minimums, drag back to permille") {
+    SplitSections s = split_sections(530, 600, 30, 60);
+    CHECK_EQ(s.top_h, 300); CHECK_EQ(s.bar_y, 300); CHECK_EQ(s.bottom_y, 330); CHECK_EQ(s.bottom_h, 200);
+    s = split_sections(530, 980, 30, 60);
+    CHECK_EQ(s.top_h, 440); CHECK_EQ(s.bottom_h, 60);
+    s = split_sections(530, 0, 30, 60);
+    CHECK_EQ(s.top_h, 60); CHECK_EQ(s.bottom_y, 90);
+    s = split_sections(100, 900, 30, 60);
+    CHECK_EQ(s.top_h, 35); CHECK_EQ(s.bottom_h, 35);
+    s = split_sections(10, 500, 30, 60);
+    CHECK_EQ(s.bar_h, 10); CHECK_EQ(s.top_h, 0); CHECK_EQ(s.bottom_h, 0);
+    CHECK_EQ(split_permille(530, 300, 30), 600);
+    CHECK_EQ(split_permille(530, -40, 30), 0);
+    CHECK_EQ(split_permille(530, 900, 30), 1000);
+    CHECK_EQ(split_permille(20, 5, 30), 500);
+}
+
 TEST("album_grid: columns, hit testing, reveal") {
     GridLayout g = album_grid(430, 1, 1);
     CHECK_EQ(g.cols, 4);

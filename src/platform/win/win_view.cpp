@@ -98,6 +98,7 @@ HCURSOR load_cursor(Cursor c) {
     switch (c) {
     case Cursor::Hand: return LoadCursor(nullptr, IDC_HAND);
     case Cursor::IBeam: return LoadCursor(nullptr, IDC_IBEAM);
+    case Cursor::SizeNS: return LoadCursor(nullptr, IDC_SIZENS);
     default: return LoadCursor(nullptr, IDC_ARROW);
     }
 }

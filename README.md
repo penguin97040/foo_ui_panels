@@ -128,6 +128,13 @@ it, a skin gets neutral defaults. Edits are picked up live, like script edits.
 | `font.playlist.header`, `font.playlist.header.size` | Playlist group headers (artist line): face and size in px (`Segoe UI`, `15`). Header height grows with the size. |
 | `font.library_tree`, `font.library_tree.size` | Playlist switcher tree: face and size in px (`Segoe UI`, `13`). Row height grows with the size. |
 | `playlist.highlight_style` | `flat`: fill the now-playing row (and the background fallback) with a solid colour instead of the shaded gradient. |
+| `playlist.row_height` | Playlist track row height in px, for more space between rows (never less than the font needs). Row text is centred in it. |
+| `library_tree.layout` | `split`: the playlist switcher shows the artists on top and the playlists below, with a bar between them that you drag to share out the height (double-click it to reset). The share is remembered. |
+| `library_tree.art_size` | Size in px of the pictures beside artists and albums in the playlist switcher tree (default `0`, none). An artist shows their artist picture (album art type "Artist") or else an album cover. |
+| `font.library_tree.header`, `font.library_tree.header.size` | The split tree's PLAYLISTS bar: face and size in px (default: the tree's font). |
+| `volume.range_db` | The Volume panel spans `-N…0` dB instead of `-100…0` (the left edge still mutes). `%panel_volume%` keeps its meaning, `10 × (dB + 100)`. |
+| `peak_meter.orientation` | `vertical`: one column per channel, rising from the bottom (default: horizontal bars). |
+| `peak_meter.segment`, `peak_meter.segment_gap`, `peak_meter.channel_gap` | Peak meter segment pitch, the gap inside it and the gap between channels, in px (`4`, `1`, `2`). |
 | `background.image_pvar`, `background.enabled_pvar`, `background.alpha_pvar`, `background.alpha`, `background.top` | The wallpaper the main script draws (file relative to `images`, on/off variable, opacity, top offset), so native panels can show the same one. |
 | `asset.bar_fill`, `asset.volume_knob` | Seek/volume bar art (`{theme}` allowed). |
 | `asset.nocover`, `asset.cd_case`, `asset.cd_case_window` | Album browser: missing-cover art, case art and the cover's window inside it (`x y w h`, case pixels). |
@@ -142,7 +149,7 @@ it, a skin gets neutral defaults. Edits are picked up live, like script edits.
 | `action.remap.<action>` | Run another button action instead. |
 | `onboarding.pvars` | First-run flags set to 1 when a popup opens: names, `prefix*`, `!exclusion`. |
 | `pvar.once.<name>` | Set this variable once, then leave it to the user. |
-| `color.<role>`, `color.<panel>.<role>` | Native panels' colours (`r g b`, `r-g-b` or `#rrggbb`); the panel-specific key wins. Panels: `playlist`, `album_list`, `library_tree` (the playlist switcher's tree; `background`, `text`, `separator`, `highlight`), `quick_search`, `lyrics`, `seekbar`, `volume`. Roles: `background`, `overlay` (dimming over the wallpaper), `text`, `text_secondary`, `text_dim`, `highlight` (selection; default: the theme accent), `separator`, `row_text`, `row_text_selected` (playlist), `hover`, `placeholder` (album browser), `frame` (quick search). Unset: the built-in dark look. |
+| `color.<role>`, `color.<panel>.<role>` | Native panels' colours (`r g b`, `r-g-b` or `#rrggbb`); the panel-specific key wins. Panels: `playlist`, `album_list`, `library_tree` (the playlist switcher's tree; `background`, `text`, `text_dim`, `separator`, `highlight`, `header`), `peak_meter` (`unlit`, `peak`), `quick_search`, `lyrics`, `seekbar`, `volume`. Roles: `background`, `overlay` (dimming over the wallpaper), `text`, `text_secondary`, `text_dim`, `highlight` (selection; default: the theme accent), `separator`, `row_text`, `row_text_selected` (playlist), `hover`, `placeholder` (album browser), `frame` (quick search). Unset: the built-in dark look. |
 
 ## What's implemented
 

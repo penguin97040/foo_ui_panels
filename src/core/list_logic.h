@@ -74,6 +74,13 @@ public:
 };
 int fixed_row_at(int y, int scroll, int row_h, int rows);
 
+// Two stacked sections with a divider bar between them. permille is the top section's share of the
+// height left after the bar; each section keeps at least min_h unless the panel is too short for both.
+struct SplitSections { int top_h = 0, bar_y = 0, bar_h = 0, bottom_y = 0, bottom_h = 0; };
+SplitSections split_sections(int h, int permille, int bar_h, int min_h);
+// The permille that puts the bar's top edge at bar_y.
+int split_permille(int h, int bar_y, int bar_h);
+
 struct GridLayout {
     int cols = 1, cellW = 0, cellH = 0, gutter = 5, margin = 6;
     int cell_x(int i) const { return margin + (i % cols) * (cellW + gutter); }

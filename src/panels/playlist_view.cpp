@@ -72,6 +72,8 @@ static PLFonts playlist_fonts(const SkinEngine* e) {
     const double rk = std::max(1.0, f.row.size / 12.0);
     f.hk = std::max(rk, f.hdr.size / 15.0);
     f.row_h = (int)std::lround(19 * rk);
+    // playlist.row_height (px) spaces the rows out further; it never shrinks them below the font.
+    f.row_h = std::max(f.row_h, std::min(200, e->config().num("playlist.row_height", 0)));
     f.header_h = (int)std::lround(46 * f.hk);
     return f;
 }
@@ -191,9 +193,10 @@ void PlaylistView::paint(gfx::Canvas& cv) {
                 gfx::Color tc = (playing || selected) ? col("row_text_selected", gfx::Color(255, 255, 255))
                                                        : col("row_text", gfx::Color(205, 215, 235));
                 pfc::string8 line = fmt(h, g_pl.row);
-                cv.draw_text(line.get_ptr(), gfx::Rect::ltrb(10, y + 1, W - 150, y + ROW_H), kLine | gfx::kEndEllipsis, tc);
+                cv.draw_text(line.get_ptr(), gfx::Rect::ltrb(10, y + 1, W - 150, y + ROW_H), kLine | gfx::kVCenter | gfx::kEndEllipsis, tc);
                 pfc::string8 ln = fmt(h, g_pl.len);
-                cv.draw_text(ln.get_ptr(), gfx::Rect::ltrb(W - 46, y + 1, W - 8, y + ROW_H), gfx::kAlignRight | kLine, tc);
+                const int lenW = std::max(38, cv.text_width(ln.get_ptr()));   // larger fonts need more than 38 px
+                cv.draw_text(ln.get_ptr(), gfx::Rect::ltrb(W - 8 - lenW, y + 1, W - 8, y + ROW_H), gfx::kAlignRight | kLine | gfx::kVCenter, tc);
                 int r = ((int)idx == m_hover_row)
                             ? m_hover_stars
                             : atoi(fmt(h, g_pl.rating).get_ptr());

@@ -1,6 +1,7 @@
 #include "volume.h"
 #include "../core/skin_engine.h"
 #include "../core/image_cache.h"
+#include <algorithm>
 #include <string>
 
 namespace pui {
@@ -9,8 +10,16 @@ void Volume::set_from_x(int x) {
     const int W = host()->bounds().w;
     if (W <= 0) return;
     float f = (float)x / W; if (f < 0) f = 0; if (f > 1) f = 1;
-    playback_control::get()->set_volume(f * 100.0f - 100.0f);
+    const float range = range_db();
+    playback_control::get()->set_volume(f <= 0 ? -100.0f : f * range - range);
     if (m_engine && m_engine->main_window()) m_engine->main_window()->invalidate();
+}
+
+// volume.range_db = N: the panel spans -N..0 dB (the left edge mutes) instead of -100..0 dB, most of
+// which is too quiet to hear.
+float Volume::range_db() const {
+    const int r = m_engine ? m_engine->config().num("volume.range_db", 100) : 100;
+    return (float)std::clamp(r, 6, 100);
 }
 
 void Volume::on_mouse_down(const ui::MouseEvent& e) {
@@ -30,7 +39,7 @@ void Volume::paint(gfx::Canvas& cv) {
     const int W = cv.width(), H = cv.height();
 
     float vol = playback_control::get()->get_volume();
-    float frac = (vol + 100.0f) / 100.0f; if (frac < 0) frac = 0; if (frac > 1) frac = 1;
+    float frac = (vol + range_db()) / range_db(); if (frac < 0) frac = 0; if (frac > 1) frac = 1;
     int fw = (int)(W * frac);
 
     gfx::Color accent(0, 140, 220); if (m_engine) m_engine->theme_color(accent);

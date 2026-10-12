@@ -51,6 +51,7 @@ NSCursor* cursor_of(Cursor c) {
     switch (c) {
     case Cursor::Hand: return [NSCursor pointingHandCursor];
     case Cursor::IBeam: return [NSCursor IBeamCursor];
+    case Cursor::SizeNS: return [NSCursor resizeUpDownCursor];
     default: return [NSCursor arrowCursor];
     }
 }

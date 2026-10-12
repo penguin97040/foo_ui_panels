@@ -15,6 +15,7 @@ public:
 
 private:
     void set_from_x(int x);
+    float range_db() const;
     SkinEngine* m_engine = nullptr;
 };
 

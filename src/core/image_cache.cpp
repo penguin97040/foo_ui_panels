@@ -115,17 +115,23 @@ void ensure_started() {
     now_playing_album_art_notify_manager::get()->add(&g_npNotify);
 }
 
-void request_art(const std::string& key, const metadb_handle_ptr& track, bool nowPlaying) {
+// artist: ask for the artist picture first and fall back to the front cover.
+void request_art(const std::string& key, const metadb_handle_ptr& track, bool nowPlaying, bool artist = false) {
     if (g_shutdown || g_artPending.count(key) || g_artInflight >= kMaxArtInflight) return;
     g_artPending.insert(key);
     ++g_artInflight;
-    fb2k::splitTask([key, track, nowPlaying]() {
+    fb2k::splitTask([key, track, nowPlaying, artist]() {
         album_art_data_ptr data;
         try {
             abort_callback& abort = fb2k::mainAborter();
-            pfc::list_t<GUID> ids; ids.add_item(album_art_ids::cover_front);
+            pfc::list_t<GUID> ids;
+            if (artist) ids.add_item(album_art_ids::artist);
+            ids.add_item(album_art_ids::cover_front);
             auto extractor = album_art_manager_v2::get()->open(pfc::list_single_ref_t(track), ids, abort);
-            data = extractor->query(album_art_ids::cover_front, abort);
+            if (artist) {
+                try { data = extractor->query(album_art_ids::artist, abort); } catch (...) {}
+            }
+            if (!data.is_valid()) data = extractor->query(album_art_ids::cover_front, abort);
         } catch (...) {}
         fb2k::inMainThread([key, nowPlaying, data]() {
             if (g_shutdown) return;
@@ -304,6 +310,34 @@ bool draw_cover_art(gfx::Canvas& cv, const std::string& path, const metadb_handl
 
 gfx::ImagePtr cover_image(const std::string& path, const metadb_handle_ptr& track) {
     return resolve_cover(path, track);
+}
+
+void draw_square_image(gfx::Canvas& cv, const gfx::ImagePtr& img, int x, int y, int side) {
+    if (!img || side <= 0) return;
+    const int iw = img->width(), ih = img->height();
+    if (iw <= 0 || ih <= 0) return;
+    const gfx::RectF dst{ (float)x, (float)y, (float)side, (float)side };
+    // (Nearly) square art: draw a cached copy at the target size, so small thumbnails stay cheap.
+    if (std::abs(iw - ih) * 50 <= std::max(iw, ih)) {
+        const int ps = (int)std::lround(side * cv.device_scale());
+        if (ps > 0 && ps <= 8192)
+            if (gfx::ImagePtr sc = scaled_copy(img, ps, ps)) {
+                cv.draw_image(*sc, dst, gfx::RectF{}, 255, false, gfx::Interp::Bilinear);
+                return;
+            }
+    }
+    const float m = (float)std::min(iw, ih);
+    cv.draw_image(*img, dst, gfx::RectF{ (iw - m) / 2, (ih - m) / 2, m, m });
+}
+
+gfx::ImagePtr artist_image(const metadb_handle_ptr& track) {
+    ensure_started();
+    if (!track.is_valid()) return nullptr;
+    const std::string key = "\x01" "artist:" + std::string(track->get_path());
+    gfx::ImagePtr img;
+    if (cache_get(key, img)) return img;
+    request_art(key, track, false, true);
+    return nullptr;
 }
 
 gfx::ImagePtr data_image(const std::string& key, const void* data, size_t size) {

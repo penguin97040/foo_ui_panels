@@ -4,7 +4,7 @@ namespace pui::ui {
 
 enum Mods : unsigned { kShift = 1u << 0, kCtrl = 1u << 1, kAlt = 1u << 2 };
 enum class MouseButton { Left, Right, Middle };
-enum class Cursor { Arrow, Hand, IBeam };
+enum class Cursor { Arrow, Hand, IBeam, SizeNS };
 
 enum Key : int {
     kKeyUnknown = 0,
