@@ -84,3 +84,18 @@ TEST("album_sort_from / album_sort_name round-trip") {
     CHECK(album_sort_from("") == AlbumSort::Artist);
     CHECK(album_sort_from("YEAR") == AlbumSort::Year);
 }
+
+TEST("playback_order_for / order_state: shuffle and repeat survive a round trip") {
+    for (bool sh : { false, true })
+        for (int rp : { 0, 1, 2 }) {
+            OrderState s = order_state(playback_order_for(sh, rp), sh, rp);
+            CHECK(s.shuffle == sh && s.repeat == rp);
+        }
+    CHECK(std::string(playback_order_for(true, 2)) == "Repeat (track)");
+    // Changed from foobar's own menu: the active order wins over what was remembered.
+    OrderState s = order_state("Default", true, 2);
+    CHECK(!s.shuffle && s.repeat == 0);
+    s = order_state("Shuffle (albums)", false, 2);
+    CHECK(s.shuffle && s.repeat == 0);
+    CHECK(order_state("Random", false, 0).shuffle);
+}

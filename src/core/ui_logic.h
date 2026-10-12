@@ -23,6 +23,13 @@ struct MiniPlan {
 };
 MiniPlan mini_mode_plan(int curW, int curH, int miniW, int miniH, int savedW, int savedH);
 
+// Shuffle (on/off) and repeat (0 off, 1 playlist, 2 track) as one foobar2000 playback order, and back.
+// Shuffle and repeat-track can't both be active orders, so the remembered pvar fills in the one the
+// active order doesn't say.
+const char* playback_order_for(bool shuffle, int repeat);
+struct OrderState { bool shuffle = false; int repeat = 0; };
+OrderState order_state(const std::string& active, bool rememberedShuffle, int rememberedRepeat);
+
 bool filter_matches(const std::string& filter, const std::string& text);
 
 enum class AlbumSort { Artist, Album, Year, Added };

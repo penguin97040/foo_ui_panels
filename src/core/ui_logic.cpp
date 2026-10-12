@@ -139,4 +139,20 @@ std::vector<size_t> album_view(const std::vector<AlbumKeys>& all, AlbumSort sort
     return v;
 }
 
+const char* playback_order_for(bool shuffle, int repeat) {
+    if (repeat == 2) return "Repeat (track)";
+    if (shuffle) return "Shuffle (tracks)";
+    return repeat == 1 ? "Repeat (playlist)" : "Default";
+}
+
+OrderState order_state(const std::string& active, bool rememberedShuffle, int rememberedRepeat) {
+    OrderState s;
+    if (active == "Repeat (track)") { s.shuffle = rememberedShuffle; s.repeat = 2; }
+    else if (active == "Repeat (playlist)") s.repeat = 1;
+    else if (active.compare(0, 7, "Shuffle") == 0 || active == "Random") {
+        s.shuffle = true; s.repeat = rememberedRepeat == 1 ? 1 : 0;
+    }
+    return s;
+}
+
 }

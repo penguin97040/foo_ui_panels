@@ -18,8 +18,7 @@ void Volume::set_from_x(int x) {
 // volume.range_db = N: the panel spans -N..0 dB (the left edge mutes) instead of -100..0 dB, most of
 // which is too quiet to hear.
 float Volume::range_db() const {
-    const int r = m_engine ? m_engine->config().num("volume.range_db", 100) : 100;
-    return (float)std::clamp(r, 6, 100);
+    return m_engine ? (float)m_engine->volume_range_db() : 100.0f;
 }
 
 void Volume::on_mouse_down(const ui::MouseEvent& e) {

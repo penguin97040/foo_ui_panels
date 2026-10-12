@@ -132,13 +132,14 @@ it, a skin gets neutral defaults. Edits are picked up live, like script edits.
 | `library_tree.layout` | `split`: the playlist switcher shows the artists on top and the playlists below, with a bar between them that you drag to share out the height (double-click it to reset). The share is remembered. |
 | `library_tree.art_size` | Size in px of the pictures beside artists and albums in the playlist switcher tree (default `0`, none). An artist shows their artist picture (album art type "Artist") or else an album cover. |
 | `font.library_tree.header`, `font.library_tree.header.size` | The split tree's PLAYLISTS bar: face and size in px (default: the tree's font). |
-| `volume.range_db` | The Volume panel spans `-N…0` dB instead of `-100…0` (the left edge still mutes). `%panel_volume%` keeps its meaning, `10 × (dB + 100)`. |
+| `volume.range_db` | The Volume panel spans `-N…0` dB instead of `-100…0` (the left edge still mutes). `%panel_volume%` keeps its meaning, `10 × (dB + 100)`, and `%pui_volume_range%` gives N. |
 | `peak_meter.orientation` | `vertical`: one column per channel, rising from the bottom (default: horizontal bars). |
 | `peak_meter.segment`, `peak_meter.segment_gap`, `peak_meter.channel_gap` | Peak meter segment pitch, the gap inside it and the gap between channels, in px (`4`, `1`, `2`). |
 | `background.image_pvar`, `background.enabled_pvar`, `background.alpha_pvar`, `background.alpha`, `background.top` | The wallpaper the main script draws (file relative to `images`, on/off variable, opacity, top offset), so native panels can show the same one. |
 | `asset.bar_fill`, `asset.volume_knob` | Seek/volume bar art (`{theme}` allowed). |
 | `asset.nocover`, `asset.cd_case`, `asset.cd_case_window` | Album browser: missing-cover art, case art and the cover's window inside it (`x y w h`, case pixels). |
 | `asset.rating_stars` | Playlist rating-star art, `{n}` = 0–5 stars. Without it the playlist shows no stars. |
+| `spectrum.mode` | `bars` (default), `standard` or `line`: the spectrum's look until one is picked from its right-click menu. `line` joins the peaks with a line, a point every `spectrum.line_step` px (default 6), `spectrum.line_width` px thick (default 2). |
 | `spectrum.mirror_below`, `spectrum.grow`, `spectrum.raise` | Spectrum strips shorter than N px draw the reflection; grow/raise them by N px. |
 | `popup.size`, `popup.size.<file>` | Size of a `POPUP:` window, `W H` (`400 500`). |
 | `mini.size`, `mini.anchor` | The skin's compact layout for **View › Panels UI › Mini mode**: client size `W H`, and the corner that stays put (`RIGHT TOP`, …; default top-left). Unset: no mini mode. |
@@ -212,6 +213,10 @@ it, a skin gets neutral defaults. Edits are picked up live, like script edits.
 - Skins can use these from their own buttons too: `ONTOP:TOGGLE`, `ZOOM:IN`/`ZOOM:OUT`/
   `ZOOM:RESET`, `MINIMODE:TOGGLE`, `PVAR:TOGGLE:<variable>` (flips a 0/1 variable),
   `PREFERENCES` (this component's Preferences page), `URL:<address>` and `SKIN:CHOOSE_FOLDER`.
+- Shuffle and repeat buttons: `ORDER:SHUFFLE` turns shuffle on or off, `ORDER:REPEAT` steps repeat
+  through off, playlist and track. Together they set foobar2000's playback order (Shuffle (tracks),
+  Repeat (playlist), Repeat (track) or Default). `%pui_shuffle%` (1 when on) and `%pui_repeat%`
+  (0, 1 or 2) read the state back, following the order even when it's changed from foobar2000's menu.
 - Switching skin or main script in Preferences applies immediately (no restart). The skin picker
   shows a preview of the skin: its own (`preview` in `foo_ui_panels.ini`, else a `preview.png` /
   `screenshot.png` in its folder), else a picture the component takes of it the first time it is

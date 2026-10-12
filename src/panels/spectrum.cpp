@@ -40,7 +40,7 @@ constexpr float kMinFreq = 50.f, kMaxFreq = 22050.f;
 constexpr int kBarW = 14, kBarGap = 1;
 
 enum {
-    IDM_SPECTRUM_BARS = 1, IDM_SPECTRUM_STANDARD, IDM_SPECTRUM_LOG, IDM_SPECTRUM_LINEAR,
+    IDM_SPECTRUM_BARS = 1, IDM_SPECTRUM_STANDARD, IDM_SPECTRUM_LOG, IDM_SPECTRUM_LINEAR, IDM_SPECTRUM_LINE,
 };
 
 }
@@ -58,12 +58,26 @@ void Spectrum::on_attached() {
     host()->set_timer(1, 100);
 }
 
+// "bars", "standard" or "line": the one picked from the right-click menu, else the skin's spectrum.mode.
+std::string Spectrum::mode() const {
+    if (!m_engine) return "bars";
+    std::string m = m_engine->pvar_str("spectrum.mode");
+    if (m.empty()) m = m_engine->config().str("spectrum.mode", "bars");
+    return m == "standard" || m == "line" ? m : "bars";
+}
+
 void Spectrum::refresh_cfg() {
     Cfg c;
     c.mirror = m_mirror;
     if (m_engine) m_engine->theme_color(c.accent);
     if (c.mirror) c.accent = c.accent.scaled(45);
-    c.bars = !m_engine || m_engine->pvar_str("spectrum.mode") != "standard";
+    const std::string md = mode();
+    c.bars = md == "bars";
+    c.line = md == "line";
+    if (m_engine) {
+        c.lineStep = std::clamp(m_engine->config().num("spectrum.line_step", 6), 2, 64);
+        c.lineWidth = std::clamp(m_engine->config().num("spectrum.line_width", 2), 1, 8);
+    }
     c.log  = !m_engine || m_engine->pvar_str("spectrum.scale") != "linear";
     if (m_engine && host()) {
         gfx::Rect b = host()->bounds();
@@ -96,7 +110,24 @@ void Spectrum::paint(gfx::Canvas& cv) {
     const unsigned sr = chunk.get_sample_rate();
     const float maxF = std::min(kMaxFreq, sr / 2.f - 1.f);
 
-    if (barsMode) {
+    if (cfg.line) {
+        // A point every lineStep px at the loudest bin under it, joined into one line.
+        const int step = cfg.lineStep, pts = std::max(2, W / step + 1);
+        int px = 0, py = 0;
+        for (int i = 0; i < pts; ++i) {
+            auto [s, e] = band_bins(column_band(i, pts, logScale, kMinFreq, maxF), n, sr);
+            double v = 0; for (unsigned k = s; k <= e; ++k) v = std::max(v, (double)d[k]);
+            const int yp = std::min(magnitude_to_height(v, H), H - cfg.lineWidth);
+            const int x = std::min(i * step, W - 1);
+            const int y = mirror ? yp : H - 1 - yp;
+            if (i > 0)
+                for (int t = 0; t < cfg.lineWidth; ++t) {
+                    const int o = mirror ? -t : t;
+                    cv.line(px, py + o, x, y + o, accent);
+                }
+            px = x; py = y;
+        }
+    } else if (barsMode) {
         const int bars = W / kBarW;
         for (int i = 0; i < bars; ++i) {
             auto [s, e] = band_bins(column_band(i, bars, logScale, kMinFreq, maxF), n, sr);
@@ -122,15 +153,16 @@ void Spectrum::paint(gfx::Canvas& cv) {
 
 void Spectrum::show_context_menu(int x, int y) {
     if (!m_engine) return;
-    bool barsMode = m_engine->pvar_str("spectrum.mode") != "standard";
+    const std::string md = mode();
     bool logScale = m_engine->pvar_str("spectrum.scale") != "linear";
 
     ui::Menu menu;
     auto item = [](const char* label, int id, bool checked) {
         ui::MenuItem m; m.label = label; m.id = id; m.checked = checked; return m;
     };
-    menu.push_back(item("Bars", IDM_SPECTRUM_BARS, barsMode));
-    menu.push_back(item("Standard", IDM_SPECTRUM_STANDARD, !barsMode));
+    menu.push_back(item("Bars", IDM_SPECTRUM_BARS, md == "bars"));
+    menu.push_back(item("Standard", IDM_SPECTRUM_STANDARD, md == "standard"));
+    menu.push_back(item("Line", IDM_SPECTRUM_LINE, md == "line"));
     menu.push_back(ui::MenuItem::sep());
     menu.push_back(item("Logarithmic Scale", IDM_SPECTRUM_LOG, logScale));
     menu.push_back(item("Linear Scale", IDM_SPECTRUM_LINEAR, !logScale));
@@ -138,6 +170,7 @@ void Spectrum::show_context_menu(int x, int y) {
     switch (ui::popup_menu(host(), x, y, menu)) {
     case IDM_SPECTRUM_BARS:     m_engine->set_pvar("spectrum.mode", "bars"); break;
     case IDM_SPECTRUM_STANDARD: m_engine->set_pvar("spectrum.mode", "standard"); break;
+    case IDM_SPECTRUM_LINE:     m_engine->set_pvar("spectrum.mode", "line"); break;
     case IDM_SPECTRUM_LOG:      m_engine->set_pvar("spectrum.scale", "log"); break;
     case IDM_SPECTRUM_LINEAR:   m_engine->set_pvar("spectrum.scale", "linear"); break;
     default: return;

@@ -1,4 +1,5 @@
 #pragma once
+#include "ui_logic.h"
 #include "../fb2k.h"
 #include "../gfx/canvas.h"
 #include "../ui/view.h"
@@ -38,6 +39,10 @@ public:
     bool load_skin(const std::string& dir);
     void check_skin_changes();
     const SkinConfig& config() const { return m_st.cfg; }
+    // volume.range_db, clamped: the Volume panel spans -N..0 dB.
+    int volume_range_db() const;
+    // Shuffle/repeat as the skin's buttons see them (ORDER:SHUFFLE, ORDER:REPEAT).
+    OrderState playback_order_state();
 
     void draw_script(gfx::Canvas& cv, int w, int h,
                      const service_ptr_t<titleformat_object>& script,

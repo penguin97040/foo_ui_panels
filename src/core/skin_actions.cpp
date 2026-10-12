@@ -115,6 +115,35 @@ static bool run_action(const std::string& action) {
     return false;
 }
 
+int SkinEngine::volume_range_db() const {
+    return std::clamp(m_st.cfg.num("volume.range_db", 100), 6, 100);
+}
+
+static std::string active_order_name() {
+    auto pm = playlist_manager::get();
+    const char* nm = pm->playback_order_get_name(pm->playback_order_get_active());
+    return nm ? nm : "";
+}
+
+OrderState SkinEngine::playback_order_state() {
+    return order_state(active_order_name(), pvar_int("order.shuffle", 0) != 0, pvar_int("order.repeat", 0));
+}
+
+// Turns shuffle on or off, or moves repeat on to the next of off, playlist, track; then makes foobar's
+// playback order match.
+static void apply_order(SkinEngine& e, bool toggleShuffle) {
+    OrderState s = e.playback_order_state();
+    if (toggleShuffle) s.shuffle = !s.shuffle; else s.repeat = (s.repeat + 1) % 3;
+    e.set_pvar("order.shuffle", s.shuffle ? "1" : "0");
+    e.set_pvar("order.repeat", std::to_string(s.repeat));
+    const std::string want = playback_order_for(s.shuffle, s.repeat);
+    auto pm = playlist_manager::get();
+    for (t_size i = 0, n = pm->playback_order_get_count(); i < n; ++i) {
+        const char* nm = pm->playback_order_get_name(i);
+        if (nm && want == nm) { pm->playback_order_set_active(i); break; }
+    }
+}
+
 bool SkinEngine::run_button_action(const std::string& action) {
     const std::string a = m_st.cfg.str("action.remap." + action, action);
     auto pc = playback_control::get();
@@ -122,6 +151,11 @@ bool SkinEngine::run_button_action(const std::string& action) {
     if (a == "Next")              { pc->next(); return true; }
     if (a == "Stop")              { pc->stop(); return true; }
     if (a == "Play" || a == "Pause" || a == "play" || a == "pause") { pc->play_or_pause(); return true; }
+    if (a == "ORDER:SHUFFLE" || a == "ORDER:REPEAT") {
+        apply_order(*this, a == "ORDER:SHUFFLE");
+        repaint_all();
+        return true;
+    }
     if (a == "Playback/Random")   { pc->start(playback_control::track_command_rand, false); return true; }
 
     if (a.compare(0, 9, "PVAR:SET:") == 0) {

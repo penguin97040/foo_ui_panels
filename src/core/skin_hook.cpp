@@ -87,6 +87,15 @@ public:
         if (eq(name, len, "panel_volume")) {
             o.write_int(std::lround((playback_control::get()->get_volume() + 100.0f) * 10.0f)); return true;
         }
+        // Patched-build fields: the Volume panel's range in dB, and shuffle (1 or nothing) and repeat
+        // (0 off, 1 playlist, 2 track) for the skin's buttons.
+        if (eq(name, len, "pui_volume_range")) { o.write_int(m_e->volume_range_db()); return true; }
+        if (eq(name, len, "pui_shuffle") || eq(name, len, "pui_repeat")) {
+            const OrderState s = m_e->playback_order_state();
+            if (eq(name, len, "pui_repeat")) o.write_int(s.repeat);
+            else if (s.shuffle) o.write("1");
+            return true;
+        }
         if (eq(name, len, "rating")) {
             metadb_handle_ptr t = m_track;
             if (t.is_empty()) playback_control::get()->get_now_playing(t);

@@ -1,6 +1,7 @@
 #pragma once
 #include "../ui/view.h"
 #include <mutex>
+#include <string>
 
 namespace pui {
 
@@ -19,12 +20,14 @@ public:
 private:
     void refresh_cfg();
     void show_context_menu(int x, int y);
+    std::string mode() const;
 
     SkinEngine* m_engine = nullptr;
     service_ptr_t<visualisation_stream_v2> m_vis;
     bool m_mirror = false;
     struct Cfg {
-        gfx::Color accent{ 0, 140, 220 }; bool bars = true, log = true, mirror = false;
+        gfx::Color accent{ 0, 140, 220 }; bool bars = true, line = false, log = true, mirror = false;
+        int lineStep = 6, lineWidth = 2;
         gfx::ImagePtr backdrop; int bx = 0, by = 0;
     };
     Cfg m_cfg; std::mutex m_cfgMx;
