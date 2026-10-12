@@ -4,6 +4,7 @@
 #include "../core/playlist_ops.h"
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -54,7 +55,33 @@ void PlaylistView::on_attached() {
     if (!m_events) m_events = std::make_unique<Events>(this);
 }
 
+// Fonts and row metrics. A skin sets the faces and pixel sizes with font.playlist[.size] (rows) and
+// font.playlist.header[.size] (group headers); row and header heights grow with the sizes.
+struct PLFonts {
+    gfx::FontSpec hdr, sub, row;
+    double hk;          // header scale: 1 at the default sizes
+    int header_h, row_h;
+};
+
+static PLFonts playlist_fonts(const SkinEngine* e) {
+    PLFonts f{ { "Segoe UI", 15, false, true }, { "Segoe UI", 12, false }, { "Segoe UI", 12, false }, 1.0, 46, 19 };
+    if (!e) return f;
+    f.row = e->panel_font("playlist", f.row);
+    f.sub = f.row;
+    f.hdr = e->panel_font("playlist.header", f.hdr);
+    const double rk = std::max(1.0, f.row.size / 12.0);
+    f.hk = std::max(rk, f.hdr.size / 15.0);
+    f.row_h = (int)std::lround(19 * rk);
+    f.header_h = (int)std::lround(46 * f.hk);
+    return f;
+}
+
 const GroupedRows& PlaylistView::layout() {
+    const PLFonts f = playlist_fonts(m_engine);
+    if (f.header_h != m_layout.header_h() || f.row_h != m_layout.row_h()) {
+        m_layout = GroupedRows(f.header_h, f.row_h);
+        m_dirty = true;
+    }
     if (!m_dirty) return m_layout;
     g_pl.ensure();
     auto pm = playlist_manager::get();
@@ -69,13 +96,16 @@ const GroupedRows& PlaylistView::layout() {
     return m_layout;
 }
 
-static const gfx::FontSpec kHdrFont{ "Segoe UI", 15, false, true };
-static const gfx::FontSpec kSubFont{ "Segoe UI", 12, false };
-static const gfx::FontSpec kRowFont{ "Segoe UI", 12, false };
-
 void PlaylistView::paint(gfx::Canvas& cv) {
     const int W = cv.width(), H = cv.height();
     auto col = [this](const char* role, gfx::Color def) { return m_engine ? m_engine->color("playlist", role, def) : def; };
+    // playlist.highlight_style = flat: solid fills instead of the shaded gradient.
+    const bool flat = m_engine && m_engine->config().str("playlist.highlight_style") == "flat";
+    auto fill = [&](int x, int y, int w, int h, gfx::Color c) {
+        if (flat) cv.fill_rect(gfx::Rect{ x, y, w, h }, c); else fill_gradient_v(cv, x, y, w, h, c);
+    };
+    const PLFonts F = playlist_fonts(m_engine);
+    auto hs = [&](int v) { return (int)std::lround(v * F.hk); };
     bool drewbg = false;
     gfx::Color hl(36, 86, 180);
     const bool hlFixed = m_engine && m_engine->configured_color("playlist", "highlight", hl);
@@ -98,7 +128,7 @@ void PlaylistView::paint(gfx::Canvas& cv) {
         }
     }
     if (!drewbg && m_engine) drewbg = m_engine->draw_canvas_snapshot(cv, *host());
-    if (!drewbg) fill_gradient_v(cv, 0, 0, W, H, col("background", gfx::Color(30, 30, 34)));
+    if (!drewbg) fill(0, 0, W, H, col("background", gfx::Color(30, 30, 34)));
 
     const unsigned kLine = gfx::kSingleLine;
 
@@ -124,23 +154,23 @@ void PlaylistView::paint(gfx::Canvas& cv) {
             metadb_handle_ptr h0; pm->activeplaylist_get_item_handle(h0, first);
             {
                 pfc::string8 cov = fmt(h0, g_pl.cover);
-                draw_cover_art(cv, cov.get_ptr(), h0, 5, y + 4, 38, 38);
+                draw_cover_art(cv, cov.get_ptr(), h0, 5, y + hs(4), hs(38), hs(38));
             }
-            cv.set_font(kHdrFont);
+            cv.set_font(F.hdr);
             pfc::string8 art = fmt(h0, g_pl.artist);
-            cv.draw_text(art.get_ptr(), gfx::Rect::ltrb(50, y + 2, W - 70, y + 18), kLine | gfx::kEndEllipsis,
+            cv.draw_text(art.get_ptr(), gfx::Rect::ltrb(hs(50), y + hs(2), W - 70, y + hs(18)), kLine | gfx::kEndEllipsis,
                          col("text", gfx::Color(235, 240, 255)));
             char cnt[32]; snprintf(cnt, sizeof cnt, "%u TRACKS", (unsigned)count);
-            cv.set_font(kSubFont);
-            cv.draw_text(cnt, gfx::Rect::ltrb(W - 120, y + 3, W - 6, y + 18), gfx::kAlignRight | kLine,
+            cv.set_font(F.sub);
+            cv.draw_text(cnt, gfx::Rect::ltrb(W - hs(120), y + hs(3), W - 6, y + hs(18)), gfx::kAlignRight | kLine,
                          col("text_dim", gfx::Color(150, 170, 210)));
             pfc::string8 alb = fmt(h0, g_pl.album);
-            cv.draw_text(alb.get_ptr(), gfx::Rect::ltrb(50, y + 18, W - 70, y + 32), kLine | gfx::kEndEllipsis,
+            cv.draw_text(alb.get_ptr(), gfx::Rect::ltrb(hs(50), y + hs(18), W - 70, y + hs(32)), kLine | gfx::kEndEllipsis,
                          col("text_secondary", gfx::Color(200, 210, 235)));
             pfc::string8 yr = fmt(h0, g_pl.year);
-            cv.draw_text(yr.get_ptr(), gfx::Rect::ltrb(50, y + 31, W - 70, y + 45), kLine, col("text_dim", gfx::Color(140, 160, 200)));
+            cv.draw_text(yr.get_ptr(), gfx::Rect::ltrb(hs(50), y + hs(31), W - 70, y + hs(45)), kLine, col("text_dim", gfx::Color(140, 160, 200)));
             pfc::string8 gen = fmt(h0, g_pl.genre);
-            cv.draw_text(gen.get_ptr(), gfx::Rect::ltrb(W - 160, y + 31, W - 6, y + 45),
+            cv.draw_text(gen.get_ptr(), gfx::Rect::ltrb(W - hs(160), y + hs(31), W - 6, y + hs(45)),
                          gfx::kAlignRight | kLine | gfx::kEndEllipsis, col("text_dim", gfx::Color(140, 160, 200)));
             cv.line(4, y + HEADER_H - 1, W - 4, y + HEADER_H - 1, col("separator", gfx::Color(40, 55, 90)));
         }
@@ -151,13 +181,13 @@ void PlaylistView::paint(gfx::Canvas& cv) {
                 bool playing = np.is_valid() && h == np;
                 bool selected = pm->activeplaylist_is_item_selected(idx);
                 if (playing) {
-                    fill_gradient_v(cv, 2, y, W - 4, ROW_H, hl);
+                    fill(2, y, W - 4, ROW_H, hl);
                 } else if (selected) {
                     fill_alpha(cv, 2, y, W - 4, ROW_H, hl, 90);
                     auto lt = [](int v){ int r = v + 60; return r > 255 ? 255 : r; };
                     cv.line(6, y + ROW_H - 1, W - 8, y + ROW_H - 1, gfx::Color(lt(hl.r), lt(hl.g), lt(hl.b)));
                 }
-                cv.set_font(kRowFont);
+                cv.set_font(F.row);
                 gfx::Color tc = (playing || selected) ? col("row_text_selected", gfx::Color(255, 255, 255))
                                                        : col("row_text", gfx::Color(205, 215, 235));
                 pfc::string8 line = fmt(h, g_pl.row);

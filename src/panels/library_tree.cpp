@@ -3,12 +3,20 @@
 #include "../core/log.h"
 #include "../core/navidrome_library_api.h"
 #include <algorithm>
+#include <cmath>
 #include <map>
 
 namespace pui {
 
-static const int kRowH = 20, kIndent = 18, kPad = 4;
-static const gfx::FontSpec kFont{ "Segoe UI", 13, false };
+static const int kIndent = 18, kPad = 4;
+
+// A skin sets the tree's face and pixel size with font.library_tree[.size]; rows grow with the size.
+gfx::FontSpec LibraryTree::font() const {
+    const gfx::FontSpec def{ "Segoe UI", 13, false };
+    return m_engine ? m_engine->panel_font("library_tree", def) : def;
+}
+
+int LibraryTree::row_h() const { return std::max(20, (int)std::lround(20 * font().size / 13.0)); }
 
 static std::string lower_str(std::string s) { for (auto& c : s) c = (char)tolower((unsigned char)c); return s; }
 
@@ -166,16 +174,16 @@ void LibraryTree::refresh_tree() {
 }
 
 void LibraryTree::clamp_scroll() {
-    m_scroll = pui::clamp_scroll(m_scroll, (int)m_tree.rows.size() * kRowH, host() ? host()->bounds().h : 0);
+    m_scroll = pui::clamp_scroll(m_scroll, (int)m_tree.rows.size() * row_h(), host() ? host()->bounds().h : 0);
 }
 
-int LibraryTree::row_at(int y) const { return fixed_row_at(y, m_scroll, kRowH, (int)m_tree.rows.size()); }
+int LibraryTree::row_at(int y) const { return fixed_row_at(y, m_scroll, row_h(), (int)m_tree.rows.size()); }
 
 void LibraryTree::select_row(int row) {
     if (m_tree.rows.empty()) return;
     row = std::max(0, std::min((int)m_tree.rows.size() - 1, row));
     m_sel = m_tree.rows[row];
-    m_scroll = scroll_into_view(m_scroll, row * kRowH, (row + 1) * kRowH, host()->bounds().h);
+    m_scroll = scroll_into_view(m_scroll, row * row_h(), (row + 1) * row_h(), host()->bounds().h);
     clamp_scroll();
     invalidate();
 }
@@ -189,10 +197,14 @@ void LibraryTree::toggle(int item) {
 
 void LibraryTree::paint(gfx::Canvas& cv) {
     const int W = cv.width(), H = cv.height();
-    const gfx::Color bg(20, 21, 26), text(228, 231, 240), lines(80, 85, 100);
-    gfx::Color accent(0, 120, 215); if (m_engine) m_engine->theme_color(accent);
+    auto col = [this](const char* role, gfx::Color def) { return m_engine ? m_engine->color("library_tree", role, def) : def; };
+    const gfx::Color bg = col("background", gfx::Color(20, 21, 26)), text = col("text", gfx::Color(228, 231, 240)),
+                     lines = col("separator", gfx::Color(80, 85, 100));
+    gfx::Color accent(0, 120, 215);
+    if (m_engine && !m_engine->configured_color("library_tree", "highlight", accent)) m_engine->theme_color(accent);
+    const int kRowH = row_h();
     cv.fill_rect(gfx::Rect{ 0, 0, W, H }, bg);
-    cv.set_font(kFont);
+    cv.set_font(font());
     const int first = m_scroll / kRowH;
     for (int r = first; r < (int)m_tree.rows.size(); ++r) {
         const int y = r * kRowH - m_scroll;
@@ -214,7 +226,7 @@ void LibraryTree::paint(gfx::Canvas& cv) {
 }
 
 void LibraryTree::on_wheel(int, int, float notches) {
-    m_scroll -= (int)(notches * kRowH * 3);
+    m_scroll -= (int)(notches * row_h() * 3);
     clamp_scroll();
     invalidate();
 }
@@ -241,7 +253,7 @@ void LibraryTree::on_mouse_down(const ui::MouseEvent& e) {
 bool LibraryTree::on_key_down(int key, unsigned) {
     if (key == ui::kKeyF5) { load_local(); start_remote_load(); finish_data(); return true; }
     const int row = m_tree.row_of(m_sel);
-    const int page = std::max(1, host()->bounds().h / kRowH - 1);
+    const int page = std::max(1, host()->bounds().h / row_h() - 1);
     const int to = list_nav(key, row, (int)m_tree.rows.size(), page);
     if (to >= 0) { select_row(to); return true; }
     if (m_sel < 0) return false;

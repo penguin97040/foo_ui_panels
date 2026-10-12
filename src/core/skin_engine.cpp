@@ -299,6 +299,14 @@ gfx::Color SkinEngine::color(const char* panel, const char* role, gfx::Color def
     return configured_color(panel, role, c) ? c : def;
 }
 
+gfx::FontSpec SkinEngine::panel_font(const std::string& key, gfx::FontSpec def) const {
+    const std::string face = m_st.cfg.str("font." + key);
+    if (!face.empty()) def.face = face;
+    const int size = m_st.cfg.num("font." + key + ".size", 0);
+    if (size > 0) def.size = (float)size;
+    return def;
+}
+
 std::string SkinEngine::asset(const std::string& key, int n) const {
     std::string a = m_st.cfg.str("asset." + key);
     if (a.empty() || m_st.base.empty()) return {};

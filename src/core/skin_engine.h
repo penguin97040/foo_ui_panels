@@ -96,6 +96,8 @@ public:
     std::string asset(const std::string& key, int n = 0) const;
     gfx::Color color(const char* panel, const char* role, gfx::Color def) const;
     bool configured_color(const char* panel, const char* role, gfx::Color& out) const;
+    // A native panel's font: face from `font.<key>`, size (px) from `font.<key>.size`; def where unset.
+    gfx::FontSpec panel_font(const std::string& key, gfx::FontSpec def) const;
     Placement remap_panel(const Placement& p) const;
     bool is_lyrics_panel(const std::string& name) const;
     std::string get_pvar(const std::string& k) const { auto it = m_st.pvars.find(k); return it == m_st.pvars.end() ? std::string() : it->second; }

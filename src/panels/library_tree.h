@@ -34,6 +34,8 @@ private:
     enum Kind { kLoading, kPlaylists, kPlaylist, kArtist, kAlbum };
     struct RemoteAlbum { std::string artist, album, id, artist_id; };
 
+    gfx::FontSpec font() const;
+    int row_h() const;
     void load_local();
     void start_remote_load();
     void merge_remote(std::vector<RemoteAlbum>&& add);

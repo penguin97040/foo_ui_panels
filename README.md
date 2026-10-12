@@ -124,6 +124,10 @@ it, a skin gets neutral defaults. Edits are picked up live, like script edits.
 | `font.face_pvar` | Variable holding the face when a script's `$font` names it through a variable. |
 | `font.default` | Face used when none is named (`Tahoma`). |
 | `font.alias.<face>` | Installed face to use when `<face>` isn't installed. |
+| `font.playlist`, `font.playlist.size` | Playlist track rows: face and size in px (`Segoe UI`, `12`). Row height grows with the size. |
+| `font.playlist.header`, `font.playlist.header.size` | Playlist group headers (artist line): face and size in px (`Segoe UI`, `15`). Header height grows with the size. |
+| `font.library_tree`, `font.library_tree.size` | Playlist switcher tree: face and size in px (`Segoe UI`, `13`). Row height grows with the size. |
+| `playlist.highlight_style` | `flat`: fill the now-playing row (and the background fallback) with a solid colour instead of the shaded gradient. |
 | `background.image_pvar`, `background.enabled_pvar`, `background.alpha_pvar`, `background.alpha`, `background.top` | The wallpaper the main script draws (file relative to `images`, on/off variable, opacity, top offset), so native panels can show the same one. |
 | `asset.bar_fill`, `asset.volume_knob` | Seek/volume bar art (`{theme}` allowed). |
 | `asset.nocover`, `asset.cd_case`, `asset.cd_case_window` | Album browser: missing-cover art, case art and the cover's window inside it (`x y w h`, case pixels). |
@@ -138,7 +142,7 @@ it, a skin gets neutral defaults. Edits are picked up live, like script edits.
 | `action.remap.<action>` | Run another button action instead. |
 | `onboarding.pvars` | First-run flags set to 1 when a popup opens: names, `prefix*`, `!exclusion`. |
 | `pvar.once.<name>` | Set this variable once, then leave it to the user. |
-| `color.<role>`, `color.<panel>.<role>` | Native panels' colours (`r g b`, `r-g-b` or `#rrggbb`); the panel-specific key wins. Panels: `playlist`, `album_list`, `quick_search`, `lyrics`, `seekbar`, `volume`. Roles: `background`, `overlay` (dimming over the wallpaper), `text`, `text_secondary`, `text_dim`, `highlight` (selection; default: the theme accent), `separator`, `row_text`, `row_text_selected` (playlist), `hover`, `placeholder` (album browser), `frame` (quick search). Unset: the built-in dark look. |
+| `color.<role>`, `color.<panel>.<role>` | Native panels' colours (`r g b`, `r-g-b` or `#rrggbb`); the panel-specific key wins. Panels: `playlist`, `album_list`, `library_tree` (the playlist switcher's tree; `background`, `text`, `separator`, `highlight`), `quick_search`, `lyrics`, `seekbar`, `volume`. Roles: `background`, `overlay` (dimming over the wallpaper), `text`, `text_secondary`, `text_dim`, `highlight` (selection; default: the theme accent), `separator`, `row_text`, `row_text_selected` (playlist), `hover`, `placeholder` (album browser), `frame` (quick search). Unset: the built-in dark look. |
 
 ## What's implemented
 
