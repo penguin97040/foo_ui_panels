@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include "skin_engine.h"
 #include "image_cache.h"
@@ -260,6 +261,9 @@ void SkinEngine::render(gfx::Canvas& cv, int width, int height) {
 
     m_st.placements.clear();
     m_st.buttons.clear();
+    m_st.hoverElapsedMs = (int)std::min<long long>(1 << 30, std::chrono::duration_cast<std::chrono::milliseconds>(
+                              std::chrono::steady_clock::now() - m_hoverSince).count());
+    m_st.hoverWakeMs = 0;
     { SkinHook hook(this, cv, width, height, metadb_handle_ptr(), m_hoverX, m_hoverY);
       DrawString out; hook.runtime().set_text_buffer(&out.buf());
       bool ran = false;
@@ -270,6 +274,8 @@ void SkinEngine::render(gfx::Canvas& cv, int width, int height) {
       gfx::Color accent;
       const bool haveAccent = theme_color(accent);
       hook.runtime().apply_selected_buttons(m_st.buttons, haveAccent, accent); }
+    if (m_st.hoverWakeMs > 0) m_main->repaint_after(m_st.hoverWakeMs);
+    m_st.hoverElapsedMs = 1 << 30;
 
     m_problemMarker = draw_problem_marker(cv, width, height, main_script_label(), true);
 

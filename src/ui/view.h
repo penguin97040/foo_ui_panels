@@ -124,6 +124,7 @@ public:
     virtual void apply_zoom() = 0;
     virtual double zoom() const = 0;
     virtual gfx::ImagePtr capture() { return nullptr; }
+    virtual void repaint_after(int /*ms*/) {}
 };
 
 class EmbeddedPanel {

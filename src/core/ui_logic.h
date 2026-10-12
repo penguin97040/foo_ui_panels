@@ -30,6 +30,15 @@ const char* playback_order_for(bool shuffle, int repeat);
 struct OrderState { bool shuffle = false; int repeat = 0; };
 OrderState order_state(const std::string& active, bool rememberedShuffle, int rememberedRepeat);
 
+// A button with HOVERDELAY:ms shows its hover state only once the pointer has rested on it that long;
+// until then waitMs says how long to wait before repainting.
+struct HoverDelay { bool shown = true; int waitMs = 0; };
+inline HoverDelay hover_delay_state(int elapsedMs, int delayMs) {
+    HoverDelay d;
+    if (delayMs > 0 && elapsedMs < delayMs) { d.shown = false; d.waitMs = delayMs - (elapsedMs > 0 ? elapsedMs : 0); }
+    return d;
+}
+
 bool filter_matches(const std::string& filter, const std::string& text);
 
 enum class AlbumSort { Artist, Album, Year, Added };

@@ -217,6 +217,9 @@ it, a skin gets neutral defaults. Edits are picked up live, like script edits.
   through off, playlist and track. Together they set foobar2000's playback order (Shuffle (tracks),
   Repeat (playlist), Repeat (track) or Default). `%pui_shuffle%` (1 when on) and `%pui_repeat%`
   (0, 1 or 2) read the state back, following the order even when it's changed from foobar2000's menu.
+- `HOVERDELAY:<ms>` as an extra argument after a `$button`/`$button2` action holds off its hover
+  state until the pointer has rested on the button that long, e.g. `HOVERDELAY:2000` for a box
+  that opens after 2 seconds.
 - Switching skin or main script in Preferences applies immediately (no restart). The skin picker
   shows a preview of the skin: its own (`preview` in `foo_ui_panels.ini`, else a `preview.png` /
   `screenshot.png` in its folder), else a picture the component takes of it the first time it is

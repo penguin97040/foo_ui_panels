@@ -239,6 +239,18 @@ TEST("runtime: $button2 runs a draw-command state at the button origin") {
     CHECK_EQ(r.st.buttons[0].pvarValue, std::string("2"));
 }
 
+TEST("runtime: $button2 with HOVERDELAY shows its hover state only after the delay") {
+    Rig r(5, 5);
+    r.st.hoverElapsedMs = 500;
+    r.call("button2", { "0", "0", "", "", "10", "10", "", "$box()", "PVAR:SET:h:1", "HOVERDELAY:2000" });
+    CHECK_EQ(r.env.subscripts.size(), (size_t)0);
+    CHECK_EQ(r.st.hoverWakeMs, 1500);
+    r.st.hoverElapsedMs = 2100; r.st.hoverWakeMs = 0;
+    r.call("button2", { "0", "0", "", "", "10", "10", "", "$box()", "PVAR:SET:h:1", "HOVERDELAY:2000" });
+    CHECK_EQ(r.env.subscripts.size(), (size_t)1);
+    CHECK_EQ(r.st.hoverWakeMs, 0);
+}
+
 TEST("runtime: text buttons draw the label with the state's own font") {
     Rig r;
     r.call("font", { "Normal", "9" });

@@ -101,6 +101,7 @@ public:
     }
 
     static const UINT_PTR kCanvasTimer = 77;
+    static const UINT_PTR kHoverTimer = 78;
 
     void build_layout() {
         m_skin.set_main_window(this);
@@ -188,6 +189,9 @@ public:
         if (!m_wnd || utf8 == m_title) return;
         m_title = utf8;
         SetWindowTextW(m_wnd, pfc::stringcvt::string_wide_from_utf8(utf8.c_str()).get_ptr());
+    }
+    void repaint_after(int ms) override {
+        if (m_wnd) SetTimer(m_wnd, kHoverTimer, (UINT)(ms > 10 ? ms : 10), nullptr);
     }
     void set_tooltip(const std::string& utf8) override {
         m_tooltip.set(m_wnd, pfc::stringcvt::string_wide_from_utf8(utf8.c_str()).get_ptr());
@@ -382,6 +386,11 @@ private:
         case WM_ERASEBKGND:
             return 1;
         case WM_TIMER:
+            if (wp == kHoverTimer) {
+                KillTimer(wnd, kHoverTimer);
+                InvalidateRect(wnd, nullptr, FALSE);
+                return 0;
+            }
             if (wp == kCanvasTimer) {
                 if (self) self->m_skin.check_skin_changes();
                 if (pui::SkinEngine::playback_ticking()) InvalidateRect(wnd, nullptr, FALSE);

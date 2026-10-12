@@ -53,6 +53,8 @@ struct ScriptState {
     std::set<std::string> imagesChecked;
     SkinConfig cfg;
     std::string base;
+    int hoverElapsedMs = 1 << 30;   // how long the pointer has rested on the hovered button
+    int hoverWakeMs = 0;            // > 0: a HOVERDELAY button wants a repaint after this long
 };
 
 struct ScriptFunction;

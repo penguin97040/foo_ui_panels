@@ -350,6 +350,7 @@ bool SkinEngine::update_hover(int x, int y) {
         if (button_hit(m_st.buttons[i], x, y)) after = (int)i;
     }
     m_hoverX = x; m_hoverY = y;
+    if (before != after) m_hoverSince = std::chrono::steady_clock::now();
     if (m_main) m_main->set_tooltip(m_problemMarker.contains(x, y) ? problem_tooltip(main_script_label())
                                                                  : tooltip_at(m_st.buttons, x, y));
     return before != after;

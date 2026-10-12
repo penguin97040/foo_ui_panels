@@ -1,5 +1,6 @@
 #include "script_runtime.h"
 #include "script_util.h"
+#include "ui_logic.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -516,7 +517,18 @@ bool ScriptRuntime::f_button(const ScriptArgs& a, ScriptOut&) {
             if (rawH <= 0) hh = ih;
         }
     }
-    const bool hovered = m_hoverX >= x && m_hoverX < x + hw && m_hoverY >= y && m_hoverY < y + hh;
+    bool hovered = m_hoverX >= x && m_hoverX < x + hw && m_hoverY >= y && m_hoverY < y + hh;
+    if (hovered) {
+        for (size_t i = 9; i < a.size(); ++i) {
+            const std::string opt = clean_action(a.str(i));
+            if (opt.compare(0, 11, "HOVERDELAY:") != 0) continue;
+            const HoverDelay d = hover_delay_state(m_st.hoverElapsedMs, std::atoi(opt.c_str() + 11));
+            if (!d.shown) {
+                hovered = false;
+                if (m_st.hoverWakeMs <= 0 || d.waitMs < m_st.hoverWakeMs) m_st.hoverWakeMs = d.waitMs;
+            }
+        }
+    }
     auto state = [&](size_t i) {
         std::string s = trim_ws(a.str(i));
         if (s.size() >= 2 && s.front() == '\'' && s.back() == '\'') s = s.substr(1, s.size() - 2);

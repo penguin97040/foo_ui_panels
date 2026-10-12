@@ -99,3 +99,12 @@ TEST("playback_order_for / order_state: shuffle and repeat survive a round trip"
     CHECK(s.shuffle && s.repeat == 0);
     CHECK(order_state("Random", false, 0).shuffle);
 }
+
+TEST("hover_delay_state: hidden until the delay has passed, then shown") {
+    HoverDelay d = hover_delay_state(500, 2000);
+    CHECK(!d.shown); CHECK_EQ(d.waitMs, 1500);
+    CHECK(hover_delay_state(2000, 2000).shown);
+    CHECK(hover_delay_state(9000, 2000).shown);
+    CHECK(hover_delay_state(0, 0).shown);
+    CHECK_EQ(hover_delay_state(-5, 2000).waitMs, 2000);
+}
