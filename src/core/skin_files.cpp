@@ -52,6 +52,7 @@ bool SkinEngine::load_skin(const std::string& dirIn) {
     m_mainPath = resolve_main_script(dir, m_st.cfg, &why);
     if (!why.empty()) log::console(log::Level::Warn, "skin", why);
     bool ok = load_main_script();
+    apply_window_frame();
     m_previewAt = m_wizard ? 0 : tick_ms() + 3000;
     m_previewBy = m_previewAt + 60000;
     m_fileTimes = scan_skin_files();
@@ -141,6 +142,7 @@ void SkinEngine::check_skin_changes() {
         log::console(log::Level::Info, "skin", std::string("reloaded ") + SkinConfig::kFileName);
         m_st.cfg.load(m_st.base);
         seed_pvars();
+        apply_window_frame();
         std::string why;
         m_mainPath = resolve_main_script(m_st.base, m_st.cfg, &why);
         if (!why.empty()) log::console(log::Level::Warn, "skin", why);
@@ -289,6 +291,19 @@ bool SkinEngine::save_panel_script(const std::string& name, const std::string& t
     if (!ec) m_fileTimes[path] = t;
     m_reported.clear();
     return true;
+}
+
+// window.dark_titlebar, window.caption_color / caption_text_color / border_color and window.menubar
+// (the menu bar's default until the user toggles it) from foo_ui_panels.ini.
+void SkinEngine::apply_window_frame() {
+    if (!m_main) return;
+    gfx::Color cap, text, border;
+    const bool haveCap = parse_config_color(m_st.cfg.str("window.caption_color"), cap);
+    const bool haveText = parse_config_color(m_st.cfg.str("window.caption_text_color"), text);
+    const bool haveBorder = parse_config_color(m_st.cfg.str("window.border_color"), border);
+    m_main->set_frame_style(m_st.cfg.num("window.dark_titlebar", 0) != 0, haveCap ? &cap : nullptr,
+                            haveText ? &text : nullptr, haveBorder ? &border : nullptr);
+    m_main->set_menubar_visible(pvar_int("menubar", m_st.cfg.num("window.menubar", 1)) != 0);
 }
 
 int SkinEngine::pvar_int(const std::string& key, int def) {

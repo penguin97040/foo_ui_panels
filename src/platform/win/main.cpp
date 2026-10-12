@@ -190,6 +190,25 @@ public:
         m_title = utf8;
         SetWindowTextW(m_wnd, pfc::stringcvt::string_wide_from_utf8(utf8.c_str()).get_ptr());
     }
+    void set_frame_style(bool dark, const pui::gfx::Color* caption, const pui::gfx::Color* text,
+                         const pui::gfx::Color* border) override {
+        if (!m_wnd) return;
+        using SetAttr = HRESULT(WINAPI*)(HWND, DWORD, LPCVOID, DWORD);
+        static SetAttr set = [] {
+            HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
+            return dwm ? reinterpret_cast<SetAttr>(GetProcAddress(dwm, "DwmSetWindowAttribute")) : nullptr;
+        }();
+        if (!set) return;
+        const BOOL on = dark ? TRUE : FALSE;
+        if (FAILED(set(m_wnd, 20, &on, sizeof(on)))) set(m_wnd, 19, &on, sizeof(on));  // immersive dark mode
+        auto colour = [&](DWORD attr, const pui::gfx::Color* c) {    // 34 border, 35 caption, 36 text: Windows 11
+            const DWORD v = c ? RGB(c->r, c->g, c->b) : 0xFFFFFFFF;  // 0xFFFFFFFF: the system default
+            set(m_wnd, attr, &v, sizeof(v));
+        };
+        colour(34, border); colour(35, caption); colour(36, text);
+        SetWindowPos(m_wnd, nullptr, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    }
     void repaint_after(int ms) override {
         if (m_wnd) SetTimer(m_wnd, kHoverTimer, (UINT)(ms > 10 ? ms : 10), nullptr);
     }
@@ -301,7 +320,7 @@ private:
             m_groups.push_back({ mgr, base, popup, &r.guid });
             base += kSpan;
         }
-        SetMenu(m_wnd, m_skin.pvar_int("menubar", 1) ? m_menubar : nullptr);
+        SetMenu(m_wnd, m_skin.pvar_int("menubar", m_skin.config().num("window.menubar", 1)) ? m_menubar : nullptr);
     }
 
     void show_main_menu(int x, int y) {

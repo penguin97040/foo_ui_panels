@@ -125,6 +125,10 @@ public:
     virtual double zoom() const = 0;
     virtual gfx::ImagePtr capture() { return nullptr; }
     virtual void repaint_after(int /*ms*/) {}
+    // Title bar look from the skin: dark mode, and caption / caption text / border colours
+    // (nullptr = the system's own).
+    virtual void set_frame_style(bool /*dark*/, const gfx::Color* /*caption*/, const gfx::Color* /*text*/,
+                                 const gfx::Color* /*border*/) {}
 };
 
 class EmbeddedPanel {

@@ -160,6 +160,7 @@ private:
     std::string panels_dir() const { return m_st.base + "/" + m_st.cfg.str("panels", "panels"); }
     std::string script_label(const std::string& path) const;
     void seed_pvars();
+    void apply_window_frame();
     std::string m_mainPath;
     FileTimes m_fileTimes;
     unsigned long long m_nextScan = 0;

@@ -217,6 +217,10 @@ it, a skin gets neutral defaults. Edits are picked up live, like script edits.
   through off, playlist and track. Together they set foobar2000's playback order (Shuffle (tracks),
   Repeat (playlist), Repeat (track) or Default). `%pui_shuffle%` (1 when on) and `%pui_repeat%`
   (0, 1 or 2) read the state back, following the order even when it's changed from foobar2000's menu.
+- The main window's title bar can follow the skin: `window.dark_titlebar = 1` in `foo_ui_panels.ini`
+  turns on the dark title bar, and on Windows 11 `window.caption_color`, `window.caption_text_color`
+  and `window.border_color` (`r-g-b` or `#rrggbb`) colour it. `window.menubar = 0` hides the menu bar
+  until the user turns it back on (`MENUBAR:toggle`); the skin's `MENU` button opens the same menus.
 - `HOVERDELAY:<ms>` as an extra argument after a `$button`/`$button2` action holds off its hover
   state until the pointer has rested on the button that long, e.g. `HOVERDELAY:2000` for a box
   that opens after 2 seconds.

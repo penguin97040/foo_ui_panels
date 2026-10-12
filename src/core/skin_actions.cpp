@@ -298,7 +298,7 @@ bool SkinEngine::run_button_action(const std::string& action) {
         return true;
     }
     if (a == "MENUBAR:toggle") {
-        int cur = m_st.pvars.count("menubar") ? atoi(m_st.pvars["menubar"].c_str()) : 1;
+        int cur = pvar_int("menubar", m_st.cfg.num("window.menubar", 1));
         int nv = cur ? 0 : 1; m_st.pvars["menubar"] = std::to_string(nv); save_pvars();
         if (m_main) m_main->set_menubar_visible(nv != 0);
         repaint_all();
