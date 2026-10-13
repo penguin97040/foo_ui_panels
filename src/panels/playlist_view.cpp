@@ -35,6 +35,8 @@ struct PLScripts {
 };
 static PLScripts g_pl;
 
+enum { kTimerFind = 2, kTimerAutoScroll = 3, kTimerSmooth = 4, kFindResetMs = 1000, kDragThreshold = 4 };
+
 static pfc::string8 fmt(const metadb_handle_ptr& h, const service_ptr_t<titleformat_object>& s) {
     pfc::string8 o; if (h.is_valid()) h->format_title(nullptr, o, s, nullptr); return o;
 }
@@ -109,8 +111,25 @@ const GroupedRows& PlaylistView::layout() {
     return m_layout;
 }
 
+// The smallest thumb the scrollbar draws, scaled like the fonts.
+static int thumb_min(const SkinEngine* e) { return (int)std::lround(24 * playlist_fonts(e).hk); }
+
+// playlist.scrollbar = 1: a flat bar down the right edge, playlist.scrollbar.width px wide (scaled like
+// the fonts), shown only while the list is taller than the panel. 0 when there's no bar.
+int PlaylistView::bar_w() {
+    if (!m_engine || !host() || m_engine->config().num("playlist.scrollbar", 0) == 0) return 0;
+    if (layout().content_height() <= host()->bounds().h) return 0;
+    const int w = std::clamp(m_engine->config().num("playlist.scrollbar.width", 8), 2, 40);
+    return std::max(2, (int)std::lround(w * playlist_fonts(m_engine).hk));
+}
+
+bool PlaylistView::on_bar(int x) {
+    const int b = bar_w();
+    return b > 0 && x >= host()->bounds().w - b;
+}
+
 void PlaylistView::paint(gfx::Canvas& cv) {
-    const int W = cv.width(), H = cv.height();
+    const int FW = cv.width(), H = cv.height(), W = FW - bar_w();   // W: the rows, left of the scrollbar
     auto col = [this](const char* role, gfx::Color def) { return m_engine ? m_engine->color("playlist", role, def) : def; };
     // playlist.highlight_style = flat: solid fills instead of the shaded gradient.
     const bool flat = m_engine && m_engine->config().str("playlist.highlight_style") == "flat";
@@ -128,8 +147,8 @@ void PlaylistView::paint(gfx::Canvas& cv) {
         if (!wppath.empty()) {
             drewbg = m_engine->draw_canvas_snapshot(cv, *host());
             if (!drewbg) {
-                drewbg = draw_image(cv, wppath, 0, 0, W, H);
-                if (drewbg) fill_alpha(cv, 0, 0, W, H, col("overlay", gfx::Color(24, 24, 26)), 215);
+                drewbg = draw_image(cv, wppath, 0, 0, FW, H);
+                if (drewbg) fill_alpha(cv, 0, 0, FW, H, col("overlay", gfx::Color(24, 24, 26)), 215);
             }
             if (drewbg) {
                 gfx::Color avg;
@@ -141,7 +160,7 @@ void PlaylistView::paint(gfx::Canvas& cv) {
         }
     }
     if (!drewbg && m_engine) drewbg = m_engine->draw_canvas_snapshot(cv, *host());
-    if (!drewbg) fill(0, 0, W, H, col("background", gfx::Color(30, 30, 34)));
+    if (!drewbg) fill(0, 0, FW, H, col("background", gfx::Color(30, 30, 34)));
 
     const unsigned kLine = gfx::kSingleLine;
 
@@ -153,6 +172,7 @@ void PlaylistView::paint(gfx::Canvas& cv) {
     if (m_restoreScroll && m_engine) {
         m_restoreScroll = false;
         m_scroll = m_savedScroll = atoi(m_engine->view_state(scroll_state_key()).c_str());
+        if (m_smoothing) { m_smoothing = false; host()->kill_timer(kTimerSmooth); }
     }
     clamp_scroll();
     if (m_engine && m_scroll != m_savedScroll) {
@@ -227,27 +247,67 @@ void PlaylistView::paint(gfx::Canvas& cv) {
         ly -= m_scroll;
         cv.fill_rect(gfx::Rect{ 2, ly - 1, W - 4, 2 }, gfx::Color(std::min(255, hl.r + 80), std::min(255, hl.g + 80), std::min(255, hl.b + 80)));
     }
+
+    if (W < FW) {
+        cv.fill_rect(gfx::Rect{ W, 0, FW - W, H }, col("scrollbar", gfx::Color(13, 19, 24)));
+        const ScrollThumb th = scroll_thumb(m_scroll, L.content_height(), H, thumb_min(m_engine));
+        if (th.visible)
+            cv.fill_rect(gfx::Rect{ W, th.y, FW - W, th.h }, (m_barHover || m_barDrag)
+                             ? col("scrollbar_hover", gfx::Color(255, 106, 0)) : col("scrollbar_thumb", gfx::Color(44, 104, 120)));
+    }
 }
 
-enum { kTimerFind = 2, kTimerAutoScroll = 3, kFindResetMs = 1000, kDragThreshold = 4 };
 
 int PlaylistView::item_at(int y) { return layout().item_at(y + m_scroll); }
 
 int PlaylistView::drop_index_at(int y) { return layout().drop_index_at(y + m_scroll); }
 
+int PlaylistView::scroll_max() {
+    return pui::clamp_scroll(1 << 30, layout().content_height(), host() ? host()->bounds().h : 0);
+}
+
 void PlaylistView::clamp_scroll() {
     m_scroll = pui::clamp_scroll(m_scroll, layout().content_height(), host() ? host()->bounds().h : 0);
+    m_target = std::clamp(m_target, 0.0, (double)scroll_max());
+    if (!m_smoothing) m_pos = m_target = m_scroll;
+}
+
+// Straight to a scroll position, stopping any glide.
+void PlaylistView::jump_to(int scroll) {
+    if (m_smoothing && host()) host()->kill_timer(kTimerSmooth);
+    m_smoothing = false;
+    m_scroll = scroll;
+    clamp_scroll();
+}
+
+// Scroll by dy px: a glide toward the new place with playlist.smooth_scroll = 1, else a jump. Further
+// wheel turns during a glide add on to where it's heading.
+void PlaylistView::scroll_by(double dy) {
+    if (!host()) return;
+    if (!m_engine || m_engine->config().num("playlist.smooth_scroll", 0) == 0) {
+        jump_to(m_scroll + (int)dy);
+        invalidate();
+        return;
+    }
+    m_target = std::clamp((m_smoothing ? m_target : (double)m_scroll) + dy, 0.0, (double)scroll_max());
+    if (!m_smoothing) {
+        if (std::abs(m_target - m_scroll) < 0.5) return;
+        m_smoothing = true;
+        m_pos = m_scroll;
+        m_lastTick = std::chrono::steady_clock::now();
+        host()->set_timer(kTimerSmooth, 15);
+    }
 }
 
 void PlaylistView::ensure_visible(int idx) {
     if (!host()) return;
-    m_scroll = layout().reveal(m_scroll, idx, host()->bounds().h);
+    jump_to(layout().reveal(m_scroll, idx, host()->bounds().h));
     invalidate();
 }
 
-int PlaylistView::star_under(int x) const {
+int PlaylistView::star_under(int x) {
     if (!has_stars() || !host()) return 0;
-    return star_at(star_strip(host()->bounds().w), x);
+    return star_at(star_strip(host()->bounds().w - bar_w()), x);
 }
 
 void PlaylistView::on_click(int x, int y, bool dbl, bool shift, bool ctrl) {
@@ -295,9 +355,7 @@ void PlaylistView::on_rclick(int x, int y) {
 }
 
 void PlaylistView::on_wheel(int, int, float notches) {
-    m_scroll -= (int)(notches * m_layout.row_h() * 3);
-    clamp_scroll();
-    invalidate();
+    scroll_by(-(double)notches * m_layout.row_h() * 3);
 }
 
 bool PlaylistView::has_stars() const {
@@ -305,6 +363,16 @@ bool PlaylistView::has_stars() const {
 }
 
 void PlaylistView::on_mouse_move(int x, int y, unsigned, bool left_down) {
+    if (m_barDrag) {
+        jump_to(scroll_for_thumb(y - m_barGrab, layout().content_height(), host()->bounds().h, thumb_min(m_engine)));
+        invalidate();
+        return;
+    }
+    {
+        const ScrollThumb th = scroll_thumb(m_scroll, layout().content_height(), host()->bounds().h, thumb_min(m_engine));
+        const bool bh = on_bar(x) && th.visible && y >= th.y && y < th.y + th.h;
+        if (bh != m_barHover) { m_barHover = bh; invalidate(); }
+    }
     if (m_press_idx >= 0 && left_down) {
         if (!m_dragging && std::abs(y - m_press_y) > kDragThreshold) {
             m_dragging = true;
@@ -327,10 +395,26 @@ void PlaylistView::on_mouse_move(int x, int y, unsigned, bool left_down) {
 }
 
 void PlaylistView::on_mouse_leave() {
+    if (m_barHover && !m_barDrag) { m_barHover = false; invalidate(); }
     if (m_hover_row != -1) { m_hover_row = -1; invalidate(); }
 }
 
 void PlaylistView::on_mouse_down(const ui::MouseEvent& e) {
+    // The scrollbar: drag the thumb, or press the track to page toward the pointer.
+    if (on_bar(e.x)) {
+        if (e.button != ui::MouseButton::Left) return;
+        const int H = host()->bounds().h, page = std::max(1, H - m_layout.row_h());
+        const ScrollThumb th = scroll_thumb(m_scroll, layout().content_height(), H, thumb_min(m_engine));
+        if (e.y >= th.y && e.y < th.y + th.h) {
+            jump_to(m_scroll);
+            m_barDrag = true; m_barGrab = e.y - th.y;
+            host()->capture_mouse(true);
+        } else {
+            scroll_by(e.y < th.y ? -page : page);
+        }
+        invalidate();
+        return;
+    }
     if (e.button == ui::MouseButton::Left) {
         if (e.double_click) { on_click(e.x, e.y, true, false, false); return; }
         const bool shift = (e.mods & ui::kShift) != 0, ctrl = (e.mods & ui::kCtrl) != 0;
@@ -349,6 +433,12 @@ void PlaylistView::on_mouse_down(const ui::MouseEvent& e) {
 }
 
 void PlaylistView::on_mouse_up(const ui::MouseEvent& e) {
+    if (m_barDrag && e.button == ui::MouseButton::Left) {
+        m_barDrag = false;
+        host()->capture_mouse(false);
+        invalidate();
+        return;
+    }
     if (e.button != ui::MouseButton::Left || m_press_idx < 0) return;
     host()->capture_mouse(false);
     host()->kill_timer(kTimerAutoScroll);
@@ -374,11 +464,23 @@ void PlaylistView::finish_drag(int y) {
 
 void PlaylistView::on_timer(int id) {
     if (id == kTimerFind) { host()->kill_timer(kTimerFind); m_find.clear(); return; }
+    if (id == kTimerSmooth) {
+        const auto now = std::chrono::steady_clock::now();
+        const int dt = (int)std::chrono::duration_cast<std::chrono::milliseconds>(now - m_lastTick).count();
+        m_lastTick = now;
+        bool settled = true;
+        m_pos = smooth_scroll_step(m_pos, m_target, dt, settled);
+        m_scroll = (int)std::lround(m_pos);
+        if (settled || !m_smoothing) { m_smoothing = false; host()->kill_timer(kTimerSmooth); clamp_scroll(); }
+        invalidate();
+        return;
+    }
     if (id == kTimerAutoScroll && m_dragging) {
         const int H = host()->bounds().h, old = m_scroll, ROW_H = m_layout.row_h();
-        if (m_press_y < ROW_H) m_scroll -= ROW_H;
-        else if (m_press_y > H - ROW_H) m_scroll += ROW_H;
-        clamp_scroll();
+        int to = m_scroll;
+        if (m_press_y < ROW_H) to -= ROW_H;
+        else if (m_press_y > H - ROW_H) to += ROW_H;
+        jump_to(to);
         if (m_scroll != old) { m_drop_idx = drop_index_at(m_press_y); invalidate(); }
     }
 }

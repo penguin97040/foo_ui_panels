@@ -129,6 +129,9 @@ it, a skin gets neutral defaults. Edits are picked up live, like script edits.
 | `font.library_tree`, `font.library_tree.size` | Playlist switcher tree: face and size in px (`Segoe UI`, `13`). Row height grows with the size. |
 | `playlist.highlight_style` | `flat`: fill the now-playing row (and the background fallback) with a solid colour instead of the shaded gradient. |
 | `playlist.row_height` | Playlist track row height in px, for more space between rows (never less than the font needs). Row text is centred in it. |
+| `playlist.smooth_scroll` | `1`: the mouse wheel and touchpad glide through the playlist instead of jumping 3 rows at a time. |
+| `playlist.scrollbar` | `1`: a flat scrollbar down the playlist's right edge while the list is taller than the panel. Drag the thumb, or press the track to page. Colours: `color.playlist.scrollbar` (track), `color.playlist.scrollbar_thumb`, `color.playlist.scrollbar_hover` (thumb while hovered or dragged). |
+| `playlist.scrollbar.width` | The scrollbar's width in px (default 8), scaled with the playlist fonts. |
 | `library_tree.layout` | `split`: the playlist switcher shows the artists on top and the playlists below, with a bar between them that you drag to share out the height (double-click it to reset). The share is remembered. |
 | `library_tree.album_click` | `show`: one click on an album shows its tracks in a "Library view" playlist (made the active one) without playing them; double-click still plays. If "Library view" is playing at the time, its tracks move to "Album Browser" first, so playback carries on. |
 | `library_tree.art_size` | Size in px of the pictures beside artists and albums in the playlist switcher tree (default `0`, none). An artist shows their artist picture (album art type "Artist") or else an album cover. |
@@ -232,7 +235,9 @@ it, a skin gets neutral defaults. Edits are picked up live, like script edits.
   until the user turns it back on (`MENUBAR:toggle`); the skin's `MENU` button opens the same menus.
 - `HOVERDELAY:<ms>` as an extra argument after a `$button`/`$button2` action holds off its hover
   state until the pointer has rested on the button that long, e.g. `HOVERDELAY:2000` for a box
-  that opens after 2 seconds.
+  that opens after 2 seconds. The rest clock follows the button's rectangle and ignores the stray
+  mouse-leave messages Windows sends when child windows (MilkDrop, album art) move. The first 20
+  times it restarts in a session are logged to `foo_ui_panels.log` under "hover".
 - Switching skin or main script in Preferences applies immediately (no restart). The skin picker
   shows a preview of the skin: its own (`preview` in `foo_ui_panels.ini`, else a `preview.png` /
   `screenshot.png` in its folder), else a picture the component takes of it the first time it is

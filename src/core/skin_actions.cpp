@@ -447,16 +447,27 @@ bool SkinEngine::handle_click(int x, int y) {
 }
 
 bool SkinEngine::update_hover(int x, int y) {
-    int before = -1, after = -1;
-    for (size_t i = 0; i < m_st.buttons.size(); ++i) {
-        if (button_hit(m_st.buttons[i], m_hoverX, m_hoverY)) before = (int)i;
-        if (button_hit(m_st.buttons[i], x, y)) after = (int)i;
-    }
+    if (x == m_hoverX && y == m_hoverY) return false;  // Windows repeats the last move when child windows shift
+    const HoverTarget after = hover_target_at(m_st.buttons, x, y);
+    const bool changed = after != m_hoverTarget;
     m_hoverX = x; m_hoverY = y;
-    if (before != after) m_hoverSince = std::chrono::steady_clock::now();
+    if (changed) {
+        const auto now = std::chrono::steady_clock::now();
+        if (m_hoverTraces < 20 && (m_hoverTarget.w > 0 || after.w > 0)) {
+            ++m_hoverTraces;
+            auto rect = [](const HoverTarget& t) {
+                return t.w > 0 ? std::to_string(t.x) + "," + std::to_string(t.y) + " " + std::to_string(t.w) + "x" + std::to_string(t.h)
+                               : std::string("none");
+            };
+            log::info("hover", std::string(x < 0 ? "leave" : "move") + ": " + rect(m_hoverTarget) + " -> " + rect(after) +
+                      " after " + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(now - m_hoverSince).count()) + " ms");
+        }
+        m_hoverTarget = after;
+        m_hoverSince = now;
+    }
     if (m_main) m_main->set_tooltip(m_problemMarker.contains(x, y) ? problem_tooltip(main_script_label())
                                                                  : tooltip_at(m_st.buttons, x, y));
-    return before != after;
+    return changed;
 }
 
 void SkinEngine::set_rating(const metadb_handle_ptr& track, int stars) {

@@ -200,6 +200,8 @@ private:
     std::map<std::string, PanelFrame> m_frames; mutable std::mutex m_framesMx;
     int m_hoverX = -1, m_hoverY = -1;
     std::chrono::steady_clock::time_point m_hoverSince = std::chrono::steady_clock::now();
+    HoverTarget m_hoverTarget;    // the button under the pointer; its rest clock is m_hoverSince
+    int m_hoverTraces = 0;        // hover clock restarts logged so far (the first 20 go to the log)
     std::map<std::string, service_ptr_t<titleformat_object>> m_subcache;
     std::map<std::string, Slot> m_panels;
     std::set<std::string> m_childShown;

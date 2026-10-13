@@ -399,9 +399,18 @@ private:
                 InvalidateRect(wnd, nullptr, FALSE);
             break;
         }
-        case WM_MOUSELEAVE:
+        case WM_MOUSELEAVE: {
+            // Windows also sends this when child windows (MilkDrop, the art) shift or capture changes. If
+            // the pointer is still over this window itself, keep the hover and track again.
+            POINT pt;
+            if (GetCursorPos(&pt) && WindowFromPoint(pt) == wnd) {
+                TRACKMOUSEEVENT tme = { sizeof(tme), TME_LEAVE, wnd, 0 };
+                TrackMouseEvent(&tme);
+                break;
+            }
             if (self && self->m_skin.update_hover(-1, -1)) InvalidateRect(wnd, nullptr, FALSE);
             break;
+        }
         case WM_ERASEBKGND:
             return 1;
         case WM_TIMER:

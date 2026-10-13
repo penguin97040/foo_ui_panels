@@ -11,6 +11,11 @@ int scroll_into_view(int scroll, int top, int bottom, int view_h);
 struct ScrollThumb { bool visible = false; int y = 0, h = 0; };
 ScrollThumb scroll_thumb(int scroll, int content_h, int view_h, int min_h = 20);
 double ease_toward(double cur, double target, double rate, double snap, bool& settled);
+// The scroll for a thumb dragged to thumb_y (the inverse of scroll_thumb).
+int scroll_for_thumb(int thumb_y, int content_h, int view_h, int min_h = 20);
+// One frame of smooth scrolling, dt_ms after the last: eases toward target the same way however
+// often it runs, moves at least 1 px and snaps once within 1 px.
+double smooth_scroll_step(double cur, double target, int dt_ms, bool& settled);
 
 int list_nav(int key, int cur, int count, int page);
 int grid_nav(int key, int sel, int count, int cols, int page);

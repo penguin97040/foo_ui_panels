@@ -1,5 +1,7 @@
 #include "test.h"
 #include "core/ui_logic.h"
+#include "core/button.h"
+#include <vector>
 #include <cstring>
 
 using namespace pui;
@@ -107,4 +109,16 @@ TEST("hover_delay_state: hidden until the delay has passed, then shown") {
     CHECK(hover_delay_state(9000, 2000).shown);
     CHECK(hover_delay_state(0, 0).shown);
     CHECK_EQ(hover_delay_state(-5, 2000).waitMs, 2000);
+}
+
+TEST("hover_target_at: the last button drawn wins, and the same rectangle compares equal") {
+    std::vector<Button> list(2);
+    list[0].x = 0;  list[0].y = 0; list[0].w = 100; list[0].h = 30;
+    list[1].x = 10; list[1].y = 0; list[1].w = 20;  list[1].h = 30;
+    const HoverTarget t = hover_target_at(list, 15, 5);
+    CHECK_EQ(t.x, 10); CHECK_EQ(t.w, 20);
+    CHECK(hover_target_at(list, 50, 5) == (HoverTarget{0, 0, 100, 30}));
+    CHECK_EQ(hover_target_at(list, 500, 5).w, 0);
+    std::vector<Button> shifted = { list[1], list[0] };   // same buttons, new order: still the same target
+    CHECK(hover_target_at(shifted, 50, 5) == hover_target_at(list, 50, 5));
 }

@@ -36,6 +36,21 @@ double ease_toward(double cur, double target, double rate, double snap, bool& se
     return cur + d * rate;
 }
 
+int scroll_for_thumb(int thumb_y, int content_h, int view_h, int min_h) {
+    const ScrollThumb t = scroll_thumb(0, content_h, view_h, min_h);
+    const int track = view_h - t.h, range = content_h - view_h;
+    if (!t.visible || track <= 0) return 0;
+    const int y = std::max(0, std::min(thumb_y, track));
+    return (int)(((long long)y * range + track / 2) / track);
+}
+
+double smooth_scroll_step(double cur, double target, int dt_ms, bool& settled) {
+    const double rate = 1.0 - std::exp(-std::max(0, dt_ms) / 50.0);   // 50 ms time constant
+    double v = ease_toward(cur, target, rate, 1.0, settled);
+    if (!settled && std::abs(v - cur) < 1.0) v = cur + (target > cur ? 1.0 : -1.0);
+    return v;
+}
+
 int list_nav(int key, int cur, int count, int page) {
     if (count <= 0) return -1;
     int t;

@@ -1,4 +1,5 @@
 #include "test.h"
+#include <cmath>
 #include "core/list_logic.h"
 #include "core/ui_logic.h"
 #include "ui/keys.h"
@@ -36,6 +37,34 @@ TEST("ease_toward: approaches, then snaps") {
     settled = true;
     v = ease_toward(99.5, 100, 0.2, 1.0, settled);
     CHECK_EQ(v, 100.0); CHECK(settled);
+}
+
+TEST("scroll_for_thumb: the inverse of scroll_thumb, clamped to the track") {
+    CHECK_EQ(scroll_for_thumb(0, 400, 100), 0);
+    CHECK_EQ(scroll_for_thumb(75, 400, 100), 300);
+    CHECK_EQ(scroll_for_thumb(-20, 400, 100), 0);
+    CHECK_EQ(scroll_for_thumb(500, 400, 100), 300);
+    CHECK_EQ(scroll_for_thumb(30, 100, 100), 0);
+    for (int s : { 0, 60, 150, 299 }) CHECK(std::abs(scroll_for_thumb(scroll_thumb(s, 400, 100).y, 400, 100) - s) <= 4);
+}
+
+TEST("smooth_scroll_step: eases in, never overshoots, settles; frame rate doesn't change the pace") {
+    bool settled = true;
+    double v = smooth_scroll_step(0, 100, 15, settled);
+    CHECK(!settled); CHECK(v > 0 && v < 100);
+    double a = 0, b = 0;
+    for (int i = 0; i < 2; ++i) { settled = true; a = smooth_scroll_step(a, 100, 30, settled); }
+    for (int i = 0; i < 4; ++i) { settled = true; b = smooth_scroll_step(b, 100, 15, settled); }
+    CHECK(std::abs(a - b) < 1.5);
+    v = 0;
+    for (int i = 0; i < 100 && !(settled = true, v == 100); ++i) { v = smooth_scroll_step(v, 100, 15, settled); CHECK(v <= 100); }
+    CHECK_EQ(v, 100.0);
+    settled = true;
+    CHECK_EQ(smooth_scroll_step(99.6, 100, 15, settled), 100.0); CHECK(settled);
+    settled = true;
+    CHECK_EQ(smooth_scroll_step(50, 49.95, 0, settled), 49.95);
+    settled = true;
+    CHECK_EQ(smooth_scroll_step(50, 40, 0, settled), 49.0);
 }
 
 TEST("list_nav: arrows, pages, ends, nothing focused") {

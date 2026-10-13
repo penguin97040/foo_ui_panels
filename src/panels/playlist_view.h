@@ -2,6 +2,7 @@
 #include "../ui/view.h"
 #include "../fb2k.h"
 #include "../core/list_logic.h"
+#include <chrono>
 #include <memory>
 #include <string>
 #include <vector>
@@ -32,8 +33,13 @@ private:
     int  item_at(int y);
     int  drop_index_at(int y);
     bool has_stars() const;
-    int  star_under(int x) const;
+    int  star_under(int x);
     void clamp_scroll();
+    int  scroll_max();
+    void jump_to(int scroll);
+    void scroll_by(double dy);
+    int  bar_w();
+    bool on_bar(int x);
     void ensure_visible(int idx);
     void move_focus(int idx, unsigned mods);
     bool find_as_you_type(int key);
@@ -73,6 +79,14 @@ private:
     bool m_press_deferred = false;
     bool m_dragging = false;
     int m_drop_idx = -1;
+
+    // playlist.smooth_scroll: the wheel moves m_target and a timer eases m_pos (and m_scroll) toward it.
+    double m_pos = 0, m_target = 0;
+    bool m_smoothing = false;
+    std::chrono::steady_clock::time_point m_lastTick;
+    // playlist.scrollbar: the bar's thumb is dragged (grab offset m_barGrab) or hovered.
+    bool m_barDrag = false, m_barHover = false;
+    int m_barGrab = 0;
 };
 
 }
