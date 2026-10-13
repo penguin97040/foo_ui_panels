@@ -59,6 +59,7 @@ private:
     std::unique_ptr<Events> m_events;
     GroupedRows m_layout{ 46, 19 };
     bool m_dirty = true;
+    std::vector<std::string> m_groupArtist;   // each group's header artist (group_artist)
     int m_scroll = 0;
     bool m_restoreScroll = true;
     int m_savedScroll = -1;

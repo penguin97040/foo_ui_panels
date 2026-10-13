@@ -9,6 +9,7 @@
 #include "skin_paths.h"
 #include "skin_templates.h"
 #include "log.h"
+#include "list_logic.h"
 #include <cstdio>
 #include <cstring>
 
@@ -144,6 +145,106 @@ static void apply_order(SkinEngine& e, bool toggleShuffle) {
     }
 }
 
+// PLAYLIST:SORT: gathers each album of the active playlist together, albums by artist, date, album
+// and folder, tracks by disc and track number. Edit > Undo puts the old order back.
+static void sort_active_playlist() {
+    static service_ptr_t<titleformat_object> tfGroup, tfAlbumArtist, tfArtist, tfRest, tfIn;
+    if (tfGroup.is_empty()) {
+        auto c = titleformat_compiler::get();
+        c->compile_safe(tfGroup, "[%album%]|$if2($meta(album artist),$directory_path(%path%))");
+        c->compile_safe(tfAlbumArtist, "[$meta(album artist)]");
+        c->compile_safe(tfArtist, "[%artist%]");
+        c->compile_safe(tfRest, "[%date%]|[%album%]|$directory_path(%path%)");
+        c->compile_safe(tfIn, "$num($if2(%discnumber%,1),3)|$num($if2(%tracknumber%,0),4)|%path%");
+    }
+    auto pm = playlist_manager::get();
+    const t_size n = pm->activeplaylist_get_item_count();
+    if (n < 2) return;
+    std::vector<AlbumSortTrack> tracks(n);
+    for (t_size i = 0; i < n; ++i) {
+        metadb_handle_ptr h; pm->activeplaylist_get_item_handle(h, i);
+        auto f = [&h](const service_ptr_t<titleformat_object>& s) {
+            pfc::string8 o; if (h.is_valid()) h->format_title(nullptr, o, s, nullptr); return std::string(o.c_str());
+        };
+        tracks[i] = { f(tfGroup), f(tfAlbumArtist), f(tfArtist), f(tfRest), f(tfIn) };
+    }
+    const std::vector<size_t> order = album_sort_order(tracks);
+    if (order.empty()) return;
+    std::vector<t_size> o(order.begin(), order.end());
+    pm->activeplaylist_undo_backup();
+    pm->activeplaylist_reorder_items(o.data(), o.size());
+}
+
+struct OutputDevice { std::string name; GUID output, device; };
+
+static output_manager_v2::ptr output_api() {
+    output_manager_v2::ptr api;
+    output_manager::get()->service_query_t(api);
+    return api;
+}
+
+static std::vector<OutputDevice> output_devices(const output_manager_v2::ptr& api) {
+    std::vector<OutputDevice> v;
+    api->listDevices([&v](const char* name, const GUID& out, const GUID& dev) { v.push_back({ name ? name : "", out, dev }); });
+    return v;
+}
+
+static int output_current(const output_manager_v2::ptr& api, const std::vector<OutputDevice>& v) {
+    const outputCoreConfig_t c = api->getCoreConfig();
+    for (size_t i = 0; i < v.size(); ++i) if (v[i].output == c.m_output && v[i].device == c.m_device) return (int)i;
+    return -1;
+}
+
+static std::vector<std::string> output_names(const std::vector<OutputDevice>& v) {
+    std::vector<std::string> names;
+    for (auto& d : v) names.push_back(d.name);
+    return names;
+}
+
+static std::string output_key(const OutputDevice& d) {
+    return std::string(pfc::print_guid(d.output).c_str()) + "|" + pfc::print_guid(d.device).c_str();
+}
+
+int SkinEngine::output_exclusive_state() {
+    if (m_exclusive != -2) return m_exclusive;
+    m_exclusive = -1;
+    auto api = output_api();
+    if (api.is_empty()) return m_exclusive;
+    const auto v = output_devices(api);
+    const int cur = output_current(api, v);
+    if (cur < 0) return m_exclusive;
+    if (output_device_exclusive(v[(size_t)cur].name)) m_exclusive = 1;
+    else if (output_device_twin(output_names(v), cur) >= 0) m_exclusive = 0;
+    return m_exclusive;
+}
+
+void SkinEngine::toggle_output_exclusive() {
+    auto api = output_api();
+    if (api.is_empty()) return;
+    const auto v = output_devices(api);
+    const auto names = output_names(v);
+    const int cur = output_current(api, v);
+    int to = output_device_twin(names, cur);
+    if (cur >= 0 && output_device_exclusive(names[(size_t)cur])) {
+        // Back to the shared entry this switch came from, when it still pairs with this device.
+        const std::string was = pvar_str("output.shared");
+        for (size_t i = 0; i < v.size(); ++i)
+            if (output_key(v[i]) == was && output_device_twin(names, (int)i) == cur) { to = (int)i; break; }
+    } else if (cur >= 0 && to >= 0) {
+        set_pvar("output.shared", output_key(v[(size_t)cur]));
+    }
+    if (to < 0) {
+        std::string list;
+        for (auto& nm : names) list += "\n  " + nm;
+        log::console(log::Level::Warn, "output", "no shared/exclusive twin for '" +
+                     (cur >= 0 ? names[(size_t)cur] : std::string("(unknown device)")) + "'; devices:" + list);
+        return;
+    }
+    api->setCoreConfigDevice(v[(size_t)to].output, v[(size_t)to].device);
+    m_exclusive = -2;
+    repaint_all();
+}
+
 bool SkinEngine::run_button_action(const std::string& action) {
     const std::string a = m_st.cfg.str("action.remap." + action, action);
     auto pc = playback_control::get();
@@ -156,6 +257,8 @@ bool SkinEngine::run_button_action(const std::string& action) {
         repaint_all();
         return true;
     }
+    if (a == "PLAYLIST:SORT")     { sort_active_playlist(); return true; }
+    if (a == "OUTPUT:EXCLUSIVE")  { toggle_output_exclusive(); return true; }
     if (a == "Playback/Random")   { pc->start(playback_control::track_command_rand, false); return true; }
 
     if (a.compare(0, 9, "PVAR:SET:") == 0) {

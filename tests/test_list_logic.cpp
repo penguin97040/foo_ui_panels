@@ -272,3 +272,51 @@ TEST("album_view: filter and sort orders") {
     CHECK(v == std::vector<size_t>({ 2, 0, 3, 1 }));
     CHECK(album_view(all, AlbumSort::Year, "zeppelin").empty());
 }
+
+TEST("primary_artist / group_artist: feat. parts don't split an album") {
+    CHECK_EQ(primary_artist("Daft Punk feat. Pharrell Williams"), std::string("Daft Punk"));
+    CHECK_EQ(primary_artist("Drake ft Rihanna"), std::string("Drake"));
+    CHECK_EQ(primary_artist("Calvin Harris (featuring Ellie Goulding)"), std::string("Calvin Harris"));
+    CHECK_EQ(primary_artist("Simon & Garfunkel"), std::string("Simon & Garfunkel"));
+    CHECK_EQ(primary_artist("Left"), std::string("Left"));
+    CHECK_EQ(group_artist({ "", "" }, { "Daft Punk", "Daft Punk feat. Julian Casablancas" }), std::string("Daft Punk"));
+    CHECK_EQ(group_artist({ "Various", "various" }, { "A", "B" }), std::string("Various"));
+    CHECK_EQ(group_artist({ "", "" }, { "A", "B" }), std::string("Various artists"));
+    CHECK_EQ(group_artist({ "", "" }, { "", "" }), std::string());
+}
+
+TEST("album_sort_order: gathers scattered albums, artist then date, tracks in order") {
+    std::vector<AlbumSortTrack> t = {
+        { "b1", "", "Bee", "2001|B1", "1|02" },
+        { "a1", "", "Ace feat. X", "1999|A1", "1|01" },
+        { "b1", "", "Bee", "2001|B1", "1|01" },
+        { "a2", "", "ace", "1990|A2", "1|01" },
+        { "a1", "", "Ace", "1999|A1", "1|02" },
+    };
+    const std::vector<size_t> want = { 3, 1, 4, 2, 0 };
+    CHECK(album_sort_order(t) == want);
+    std::vector<AlbumSortTrack> sorted = { t[3], t[1], t[4], t[2], t[0] };
+    CHECK(album_sort_order(sorted).empty());
+}
+
+TEST("output_device_twin: shared and exclusive entries pair up") {
+    const std::vector<std::string> d = {
+        "Null Output",
+        "Default : Speakers (Realtek(R) Audio)",
+        "Speakers (Realtek(R) Audio)",
+        "Speakers (Realtek(R) Audio) [exclusive]",
+        "Headphones (USB DAC)",
+        "Headphones (USB DAC) [exclusive]",
+    };
+    CHECK(output_device_exclusive(d[3]));
+    CHECK(!output_device_exclusive(d[2]));
+    CHECK_EQ(output_device_base(d[1]), output_device_base(d[3]));
+    CHECK_EQ(output_device_twin(d, 1), 3);
+    CHECK_EQ(output_device_twin(d, 2), 3);
+    CHECK_EQ(output_device_twin(d, 3), 2);
+    CHECK_EQ(output_device_twin(d, 4), 5);
+    CHECK_EQ(output_device_twin(d, 5), 4);
+    CHECK_EQ(output_device_twin(d, 0), -1);
+    CHECK_EQ(output_device_twin({ "Primary Sound Driver", "Speakers [exclusive]" }, 0), 1);
+    CHECK_EQ(output_device_twin({ "Default", "A [exclusive]", "B [exclusive]" }, 0), -1);
+}

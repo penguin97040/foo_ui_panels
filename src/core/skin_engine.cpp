@@ -32,6 +32,7 @@ const std::vector<SkinEngine*>& SkinEngine::live() { return g_live; }
 
 SkinEngine::SkinEngine() = default;
 SkinEngine::~SkinEngine() {
+    m_outputEvents.release();
     g_live.erase(std::remove(g_live.begin(), g_live.end(), this), g_live.end());
     destroy_panels();
 }
@@ -44,6 +45,9 @@ void SkinEngine::set_main_window(ui::MainWindow* w) {
     if (w && !m_playEvents) {
         m_playEvents = std::make_unique<PlayEvents>(this);
         set_art_ready_callback([this] { repaint_all(); });
+        output_manager_v2::ptr out;
+        if (output_manager::get()->service_query_t(out))
+            m_outputEvents = out->addCallback([this] { m_exclusive = -2; repaint_all(); });
     }
 }
 

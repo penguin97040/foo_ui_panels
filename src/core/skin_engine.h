@@ -44,6 +44,10 @@ public:
     int volume_range_db() const;
     // Shuffle/repeat as the skin's buttons see them (ORDER:SHUFFLE, ORDER:REPEAT).
     OrderState playback_order_state();
+    // %pui_exclusive%: 1 while the output is a device's exclusive entry, 0 while it's shared, -1 when the
+    // current device has no exclusive twin. toggle_output_exclusive switches to the twin.
+    int output_exclusive_state();
+    void toggle_output_exclusive();
 
     void draw_script(gfx::Canvas& cv, int w, int h,
                      const service_ptr_t<titleformat_object>& script,
@@ -214,6 +218,8 @@ private:
         void on_volume_change(float) override { m_e->repaint_all(); }
     };
     std::unique_ptr<PlayEvents> m_playEvents;
+    service_ptr m_outputEvents;   // output_manager_v2 callback: the output device changed
+    int m_exclusive = -2;         // cached output_exclusive_state; -2 = work it out again
 };
 
 }

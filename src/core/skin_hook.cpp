@@ -91,6 +91,7 @@ public:
         // Patched-build fields: the Volume panel's range in dB, and shuffle (1 or nothing) and repeat
         // (0 off, 1 playlist, 2 track) for the skin's buttons.
         if (eq(name, len, "pui_volume_range")) { o.write_int(m_e->volume_range_db()); return true; }
+        if (eq(name, len, "pui_exclusive")) { o.write_int(m_e->output_exclusive_state()); return true; }
         if (eq(name, len, "pui_shuffle") || eq(name, len, "pui_repeat")) {
             const OrderState s = m_e->playback_order_state();
             if (eq(name, len, "pui_repeat")) o.write_int(s.repeat);

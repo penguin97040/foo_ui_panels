@@ -63,6 +63,8 @@ private:
     void activate(int item);
     void context_menu(int item, int x, int y);
     void play_album(const Album& al, bool replace);
+    void show_album(const Album& al);
+    static metadb_handle_list album_tracks(const Album& al);
     void play_artist(const Artist& ar, bool replace);
     Artist& artist_for(const std::string& name);
     std::string item_key(int item) const;

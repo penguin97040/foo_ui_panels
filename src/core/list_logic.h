@@ -107,4 +107,26 @@ int line_at(const std::vector<Line>& lines, double pos) {
     return cur;
 }
 
+// Grouping and sorting a playlist by album. primary_artist drops a "feat." / "ft." / "featuring" part:
+// "A feat. B" -> "A". group_artist names a group: its album artist when the tracks agree on one, else
+// the tracks' shared primary artist, else "Various artists" (empty when no track has an artist).
+std::string primary_artist(const std::string& artist);
+std::string group_artist(const std::vector<std::string>& album_artists, const std::vector<std::string>& artists);
+// One track for album_sort_order: group = its album group's key, album_artist = the ALBUM ARTIST tag
+// (empty when untagged), group_rest = what orders groups after the artist (date, album, folder),
+// in_group = what orders tracks inside a group (disc, track, path).
+struct AlbumSortTrack { std::string group, album_artist, artist, group_rest, in_group; };
+// The new order (old indices) that gathers each group together, groups by artist then group_rest,
+// tracks by in_group; case doesn't matter. Empty when the order wouldn't change.
+std::vector<size_t> album_sort_order(const std::vector<AlbumSortTrack>& tracks);
+
+// Output devices. output_device_base drops an "[exclusive]" / "(exclusive)" mark and a "Default :"
+// prefix and lower-cases the rest, so a device's shared and exclusive entries compare equal.
+bool output_device_exclusive(const std::string& name);
+std::string output_device_base(const std::string& name);
+// The device to switch to: the exclusive twin of a shared device, or the shared twin of an exclusive
+// one; -1 when there's none. A nameless default entry ("Default", "Primary Sound Driver") pairs with
+// the only exclusive device, when there's exactly one.
+int output_device_twin(const std::vector<std::string>& names, int current);
+
 }

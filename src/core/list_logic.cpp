@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstring>
 #include <functional>
 
 namespace pui {
@@ -312,6 +313,117 @@ bool coverflow_step(float& pos, int target) {
     if (std::fabs(diff) < 0.004f) { pos = (float)target; return true; }
     pos += diff * 0.22f;
     return false;
+}
+
+static std::string lower_ascii(std::string s) {
+    for (char& c : s) c = (char)std::tolower((unsigned char)c);
+    return s;
+}
+
+static std::string trim(const std::string& s) {
+    size_t a = 0, b = s.size();
+    while (a < b && std::isspace((unsigned char)s[a])) ++a;
+    while (b > a && std::isspace((unsigned char)s[b - 1])) --b;
+    return s.substr(a, b - a);
+}
+
+std::string primary_artist(const std::string& artist) {
+    static const char* const kMarks[] = { " feat. ", " feat ", " ft. ", " ft ", " featuring ",
+                                          "(feat", "[feat", "(ft.", "[ft.", "(featuring", "[featuring" };
+    const std::string low = lower_ascii(artist);
+    size_t cut = std::string::npos;
+    for (const char* m : kMarks) cut = std::min(cut, low.find(m));
+    const std::string out = trim(cut == std::string::npos ? artist : artist.substr(0, cut));
+    return out.empty() ? trim(artist) : out;
+}
+
+static bool all_same(const std::vector<std::string>& v, std::string& first) {
+    first.clear();
+    for (auto& s : v) {
+        if (s.empty()) continue;
+        if (first.empty()) first = s;
+        else if (lower_ascii(s) != lower_ascii(first)) return false;
+    }
+    return true;
+}
+
+std::string group_artist(const std::vector<std::string>& album_artists, const std::vector<std::string>& artists) {
+    std::string a;
+    if (all_same(album_artists, a) && !a.empty()) return a;
+    std::vector<std::string> prim;
+    prim.reserve(artists.size());
+    for (auto& s : artists) prim.push_back(primary_artist(s));
+    if (all_same(prim, a)) return a;
+    return "Various artists";
+}
+
+std::vector<size_t> album_sort_order(const std::vector<AlbumSortTrack>& t) {
+    std::vector<std::string> keys;
+    std::vector<std::vector<size_t>> groups;
+    for (size_t i = 0; i < t.size(); ++i) {
+        size_t g = 0;
+        while (g < keys.size() && keys[g] != t[i].group) ++g;
+        if (g == keys.size()) { keys.push_back(t[i].group); groups.emplace_back(); }
+        groups[g].push_back(i);
+    }
+    struct G { std::string sort; std::vector<size_t> idx; };
+    std::vector<G> gs;
+    gs.reserve(groups.size());
+    for (auto& idx : groups) {
+        std::stable_sort(idx.begin(), idx.end(), [&](size_t a, size_t b) {
+            return lower_ascii(t[a].in_group) < lower_ascii(t[b].in_group);
+        });
+        std::vector<std::string> aa, ar;
+        for (size_t i : idx) { aa.push_back(t[i].album_artist); ar.push_back(t[i].artist); }
+        gs.push_back({ lower_ascii(group_artist(aa, ar)) + '\x01' + lower_ascii(t[idx[0]].group_rest), idx });
+    }
+    std::stable_sort(gs.begin(), gs.end(), [](const G& a, const G& b) { return a.sort < b.sort; });
+    std::vector<size_t> order;
+    order.reserve(t.size());
+    for (auto& g : gs) order.insert(order.end(), g.idx.begin(), g.idx.end());
+    for (size_t i = 0; i < order.size(); ++i) if (order[i] != i) return order;
+    return {};
+}
+
+bool output_device_exclusive(const std::string& name) {
+    const std::string low = lower_ascii(name);
+    return low.find("[exclusive]") != std::string::npos || low.find("(exclusive)") != std::string::npos;
+}
+
+std::string output_device_base(const std::string& name) {
+    std::string low = lower_ascii(name);
+    for (const char* m : { "[exclusive]", "(exclusive)" }) {
+        const size_t p = low.find(m);
+        if (p != std::string::npos) low.erase(p, strlen(m));
+    }
+    const size_t colon = low.find(':');
+    if (low.compare(0, 7, "default") == 0 && colon != std::string::npos) low.erase(0, colon + 1);
+    return trim(low);
+}
+
+static bool nameless_default(const std::string& base) {
+    return base == "default" || base == "primary sound driver" || base.empty();
+}
+
+int output_device_twin(const std::vector<std::string>& names, int current) {
+    if (current < 0 || (size_t)current >= names.size()) return -1;
+    const bool excl = output_device_exclusive(names[(size_t)current]);
+    const std::string base = output_device_base(names[(size_t)current]);
+    if (!excl && nameless_default(base)) {
+        int only = -1;
+        for (size_t i = 0; i < names.size(); ++i)
+            if (output_device_exclusive(names[i])) { if (only >= 0) return -1; only = (int)i; }
+        return only;
+    }
+    int fallback = -1;
+    for (size_t i = 0; i < names.size(); ++i) {
+        if ((int)i == current || output_device_exclusive(names[i]) == excl) continue;
+        if (output_device_base(names[i]) != base) continue;
+        // Back from exclusive, prefer the plain entry over a "Default : <same device>" one.
+        if (lower_ascii(names[i]).compare(0, 7, "default") != 0) return (int)i;
+        if (fallback < 0) fallback = (int)i;
+    }
+    return fallback;
 }
 
 }

@@ -414,6 +414,12 @@ void LibraryTree::on_mouse_down(const ui::MouseEvent& e) {
     if (e.button == ui::MouseButton::Right) { context_menu(item, e.x, e.y); return; }
     if (e.button != ui::MouseButton::Left) return;
     if (!it.children.empty() && e.x >= x - 2 && e.x < x + 12) { toggle(item); return; }
+    // library_tree.album_click = show: one click puts the album in the "Library view" playlist.
+    if (!e.double_click && it.kind == kAlbum && m_engine &&
+        m_engine->config().str("library_tree.album_click") == "show") {
+        show_album(m_artists[it.a].albums[it.b]);
+        return;
+    }
     if (e.double_click) {
         const int k = it.kind;
         if (k == kAlbum || k == kPlaylist) activate(item);
@@ -481,19 +487,61 @@ bool LibraryTree::on_key_down(int key, unsigned) {
     return false;
 }
 
+// Finds the playlist called name, or makes it at the end of the list; pfc_infinite if that fails.
+static t_size find_or_create_playlist(const char* name) {
+    auto pm = playlist_manager::get();
+    for (t_size i = 0, n = pm->get_playlist_count(); i < n; ++i) {
+        pfc::string8 nm; pm->playlist_get_name(i, nm);
+        if (nm == name) return i;
+    }
+    return pm->create_playlist(name, strlen(name), pfc_infinite);
+}
+
+// An album's tracks in disc and track order.
+static metadb_handle_list album_tracks_sorted(const std::vector<metadb_handle_ptr>& items) {
+    static service_ptr_t<titleformat_object> order;
+    if (order.is_empty())
+        titleformat_compiler::get()->compile_safe(order, "$num($if2(%discnumber%,1),3)|$num($if2(%tracknumber%,0),4)|%path%");
+    metadb_handle_list list; for (auto& h : items) list.add_item(h);
+    list.sort_by_format(order, nullptr);
+    return list;
+}
+
+metadb_handle_list LibraryTree::album_tracks(const Album& al) { return album_tracks_sorted(al.items); }
+
+// Shows a local album in "Library view" and makes that the active playlist, without playing it. When
+// "Library view" is what's playing, its tracks move to "Album Browser" first so playback carries on.
+void LibraryTree::show_album(const Album& al) {
+    if (al.remote) return;
+    static const char* kView = "Library view";
+    auto pm = playlist_manager::get();
+    t_size view = find_or_create_playlist(kView);
+    if (view == pfc_infinite) return;
+    if (pm->get_playing_playlist() == view) {
+        const t_size keep = find_or_create_playlist("Album Browser");
+        if (keep != pfc_infinite && keep != view) {
+            metadb_handle_list playing; pm->playlist_get_all_items(view, playing);
+            pm->playlist_remove_items(keep, bit_array_true());
+            pm->playlist_insert_items(keep, 0, playing, bit_array_false());
+            pm->set_playing_playlist(keep);
+        }
+    }
+    pm->playlist_remove_items(view, bit_array_true());
+    pm->playlist_insert_items(view, 0, album_tracks(al), bit_array_false());
+    pm->set_active_playlist(view);
+    if (m_engine) m_engine->repaint_all();
+}
+
 void LibraryTree::play_album(const Album& al, bool replace) {
     if (al.remote) {
         auto api = navidrome_api();
         if (api.is_valid()) api->play_album(al.id.c_str(), replace, replace);
         return;
     }
-    metadb_handle_list list; for (auto& h : al.items) list.add_item(h);
+    const metadb_handle_list list = album_tracks(al);
     auto pm = playlist_manager::get();
     if (replace) {
-        static const char* kName = "Album Browser";
-        t_size n = pm->get_playlist_count(), target = pfc_infinite;
-        for (t_size i = 0; i < n; ++i) { pfc::string8 nm; pm->playlist_get_name(i, nm); if (nm == kName) { target = i; break; } }
-        if (target == pfc_infinite) target = pm->create_playlist(kName, strlen(kName), pfc_infinite);
+        const t_size target = find_or_create_playlist("Album Browser");
         if (target == pfc_infinite) return;
         pm->playlist_remove_items(target, bit_array_true());
         pm->playlist_insert_items(target, 0, list, bit_array_true());

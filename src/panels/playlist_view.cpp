@@ -12,13 +12,16 @@
 namespace pui {
 
 struct PLScripts {
-    service_ptr_t<titleformat_object> key, artist, album, year, genre, row, len, rating, cover, title;
+    service_ptr_t<titleformat_object> key, album_artist, artist, album, year, genre, row, len, rating, cover, title;
     bool ok = false;
     void ensure() {
         if (ok) return;
         auto c = titleformat_compiler::get();
-        c->compile_safe(key,    "[%album artist%]|[%album%]");
-        c->compile_safe(artist, "[%album artist%]");
+        // One group per album: the same album name in the same folder (or with the same ALBUM ARTIST tag,
+        // for albums split over disc folders), whoever each track's artist is.
+        c->compile_safe(key,    "[%album%]|$if2($meta(album artist),$directory_path(%path%))");
+        c->compile_safe(album_artist, "[$meta(album artist)]");
+        c->compile_safe(artist, "[%artist%]");
         c->compile_safe(album,  "[%album%]");
         c->compile_safe(year,   "[%date%]");
         c->compile_safe(genre,  "[%genre%]");
@@ -88,12 +91,20 @@ const GroupedRows& PlaylistView::layout() {
     g_pl.ensure();
     auto pm = playlist_manager::get();
     const t_size n = pm->activeplaylist_get_item_count();
-    std::vector<std::string> keys(n);
+    std::vector<std::string> keys(n), albumArtists(n), artists(n);
     for (t_size i = 0; i < n; ++i) {
         metadb_handle_ptr h; pm->activeplaylist_get_item_handle(h, i);
         keys[i] = fmt(h, g_pl.key).c_str();
+        albumArtists[i] = fmt(h, g_pl.album_artist).c_str();
+        artists[i] = fmt(h, g_pl.artist).c_str();
     }
     m_layout.set_groups(GroupedRows::runs(keys));
+    m_groupArtist.clear();
+    for (size_t g = 0; g < m_layout.group_count(); ++g) {
+        const size_t a = m_layout.group_start(g), b = a + m_layout.group_size(g);
+        m_groupArtist.push_back(group_artist({ albumArtists.begin() + a, albumArtists.begin() + b },
+                                             { artists.begin() + a, artists.begin() + b }));
+    }
     m_dirty = false;
     return m_layout;
 }
@@ -159,8 +170,8 @@ void PlaylistView::paint(gfx::Canvas& cv) {
                 draw_cover_art(cv, cov.get_ptr(), h0, 5, y + hs(4), hs(38), hs(38));
             }
             cv.set_font(F.hdr);
-            pfc::string8 art = fmt(h0, g_pl.artist);
-            cv.draw_text(art.get_ptr(), gfx::Rect::ltrb(hs(50), y + hs(2), W - 70, y + hs(18)), kLine | gfx::kEndEllipsis,
+            const std::string& art = m_groupArtist[g];
+            cv.draw_text(art.c_str(), gfx::Rect::ltrb(hs(50), y + hs(2), W - 70, y + hs(18)), kLine | gfx::kEndEllipsis,
                          col("text", gfx::Color(235, 240, 255)));
             char cnt[32]; snprintf(cnt, sizeof cnt, "%u TRACKS", (unsigned)count);
             cv.set_font(F.sub);

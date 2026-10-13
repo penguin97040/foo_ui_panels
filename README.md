@@ -130,6 +130,7 @@ it, a skin gets neutral defaults. Edits are picked up live, like script edits.
 | `playlist.highlight_style` | `flat`: fill the now-playing row (and the background fallback) with a solid colour instead of the shaded gradient. |
 | `playlist.row_height` | Playlist track row height in px, for more space between rows (never less than the font needs). Row text is centred in it. |
 | `library_tree.layout` | `split`: the playlist switcher shows the artists on top and the playlists below, with a bar between them that you drag to share out the height (double-click it to reset). The share is remembered. |
+| `library_tree.album_click` | `show`: one click on an album shows its tracks in a "Library view" playlist (made the active one) without playing them; double-click still plays. If "Library view" is playing at the time, its tracks move to "Album Browser" first, so playback carries on. |
 | `library_tree.art_size` | Size in px of the pictures beside artists and albums in the playlist switcher tree (default `0`, none). An artist shows their artist picture (album art type "Artist") or else an album cover. |
 | `font.library_tree.header`, `font.library_tree.header.size` | The split tree's PLAYLISTS bar: face and size in px (default: the tree's font). |
 | `volume.range_db` | The Volume panel spans `-N…0` dB instead of `-100…0` (the left edge still mutes). `%panel_volume%` keeps its meaning, `10 × (dB + 100)`, and `%pui_volume_range%` gives N. |
@@ -217,6 +218,14 @@ it, a skin gets neutral defaults. Edits are picked up live, like script edits.
   through off, playlist and track. Together they set foobar2000's playback order (Shuffle (tracks),
   Repeat (playlist), Repeat (track) or Default). `%pui_shuffle%` (1 when on) and `%pui_repeat%`
   (0, 1 or 2) read the state back, following the order even when it's changed from foobar2000's menu.
+- `PLAYLIST:SORT` gathers each album of the active playlist together and sorts them by artist, date,
+  album and folder, tracks by disc and track number (Edit › Undo reverses it). The playlist groups
+  tracks by album and folder, so a "feat." track no longer starts a new group; the header shows the
+  album artist, else the tracks' shared artist without the "feat." part, else "Various artists".
+- `OUTPUT:EXCLUSIVE` switches the output device between its shared and "[exclusive]" entries (from
+  "Default : <device>", to that device's exclusive entry, and back to where it came from).
+  `%pui_exclusive%` is 1 while exclusive, 0 while shared and -1 when the device has no exclusive
+  entry. If no twin is found, the device list is written to `foo_ui_panels.log`.
 - The main window's title bar can follow the skin: `window.dark_titlebar = 1` in `foo_ui_panels.ini`
   turns on the dark title bar, and on Windows 11 `window.caption_color`, `window.caption_text_color`
   and `window.border_color` (`r-g-b` or `#rrggbb`) colour it. `window.menubar = 0` hides the menu bar
